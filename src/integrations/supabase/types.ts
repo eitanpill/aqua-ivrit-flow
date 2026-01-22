@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          created_at: string
+          enrollment_id: string
+          id: string
+          marked_at: string
+          marked_by: string | null
+          notes: string | null
+          session_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          swimmer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          marked_at?: string
+          marked_by?: string | null
+          notes?: string | null
+          session_id: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          swimmer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          marked_at?: string
+          marked_by?: string | null
+          notes?: string | null
+          session_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          swimmer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: true
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_levels: {
         Row: {
           created_at: string
@@ -588,6 +656,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "coach" | "customer"
+      attendance_status: "present" | "absent" | "late" | "excused"
       enrollment_status:
         | "pending"
         | "confirmed"
@@ -733,6 +802,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "coach", "customer"],
+      attendance_status: ["present", "absent", "late", "excused"],
       enrollment_status: [
         "pending",
         "confirmed",

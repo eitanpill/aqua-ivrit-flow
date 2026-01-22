@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -22,6 +22,10 @@ const mainMenuItems = [
   { title: "יומן שיעורים", url: "/calendar", icon: CalendarDays },
   { title: "ניהול בריכות", url: "/locations", icon: MapPin },
   { title: "משתמשים", url: "/users", icon: Users },
+];
+
+const coachMenuItems = [
+  { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
 ];
 
 const customerMenuItems = [
@@ -96,6 +100,13 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
           <SidebarGroupContent>
             {renderMenuItems(mainMenuItems)}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground">מאמנים</SidebarGroupLabel>
+          <SidebarGroupContent>
+            {renderMenuItems(coachMenuItems)}
           </SidebarGroupContent>
         </SidebarGroup>
 
