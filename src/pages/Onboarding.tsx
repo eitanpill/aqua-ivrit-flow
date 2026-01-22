@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,8 @@ import {
   ChevronRight,
   Waves,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -45,6 +47,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
     schoolName: "",
@@ -55,6 +58,49 @@ export default function Onboarding() {
       endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
     },
   });
+
+  // Check if onboarding is needed (no locations exist)
+  const { data: hasLocations, isLoading: locationsLoading } = useQuery({
+    queryKey: ["onboarding-locations-check"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("locations")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return (count || 0) > 0;
+    },
+    staleTime: 0, // Always check fresh
+  });
+
+  // Redirect if not admin or if already has locations
+  useEffect(() => {
+    if (authLoading || locationsLoading) return;
+    
+    // If not admin, redirect to dashboard
+    if (!isAdmin) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    
+    // If already has locations, skip onboarding
+    if (hasLocations === true) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAdmin, hasLocations, authLoading, locationsLoading, navigate]);
+
+  // Show loading while checking
+  if (authLoading || locationsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if redirecting
+  if (!isAdmin || hasLocations === true) {
+    return null;
+  }
 
   const progress = ((currentStep - 1) / (STEPS.length - 1)) * 100;
 
