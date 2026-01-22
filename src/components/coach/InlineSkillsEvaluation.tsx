@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Award, Loader2, Star, Info } from 'lucide-react';
+import { Check, Award, Loader2, Star, Info, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,7 +40,6 @@ interface Evaluation {
   achieved: boolean;
 }
 
-// Map skill_level enum to level names for filtering
 const SKILL_LEVEL_MAP: Record<string, string> = {
   beginner: 'מתחילים',
   intermediate: 'מתקדמים',
@@ -52,7 +51,6 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch skills with level info
   const { data: allSkills = [], isLoading: skillsLoading } = useQuery({
     queryKey: ['skills-with-levels'],
     queryFn: async () => {
@@ -69,7 +67,6 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
     },
   });
 
-  // Fetch all evaluations for these swimmers
   const swimmerIds = swimmers.map(s => s.id);
   const { data: evaluations = [], isLoading: evaluationsLoading } = useQuery({
     queryKey: ['swimmer-evaluations-batch', swimmerIds],
@@ -85,7 +82,6 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
     enabled: swimmerIds.length > 0,
   });
 
-  // Toggle skill mutation
   const toggleSkill = useMutation({
     mutationFn: async ({
       swimmerId,
@@ -134,7 +130,6 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
         const skill = allSkills.find(s => s.id === skillId);
         const swimmer = swimmers.find(s => s.id === swimmerId);
         
-        // Check if required for graduation
         if (skill?.required_for_graduation) {
           confetti({
             particleCount: 50,
@@ -163,7 +158,6 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
     return levelSkills.length > 0 ? Math.round((achieved / levelSkills.length) * 100) : 0;
   };
 
-  // Get skills filtered by swimmer's level
   const getSkillsForSwimmer = (swimmer: typeof swimmers[0]) => {
     const levelName = SKILL_LEVEL_MAP[swimmer.skill_level || 'beginner'];
     return allSkills.filter(
@@ -173,18 +167,23 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
 
   if (skillsLoading || evaluationsLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">טוען מיומנויות...</p>
+        </div>
       </div>
     );
   }
 
   if (swimmers.length === 0) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-          <Star className="h-12 w-12 text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">אין משתתפים להערכת מיומנויות</p>
+      <Card className="border-dashed border-2 border-muted bg-muted/20 rounded-2xl">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            <Star className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground font-medium">אין משתתפים להערכת מיומנויות</p>
         </CardContent>
       </Card>
     );
@@ -192,47 +191,56 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
 
   return (
     <div className="space-y-4" dir="rtl">
-      <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-        <Info className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+        <Info className="h-5 w-5 text-primary shrink-0" />
         <p className="text-sm text-muted-foreground">
           לחץ על מיומנות כדי לסמן השלמה. מוצגות רק המיומנויות הרלוונטיות לרמת כל שחיין.
         </p>
       </div>
 
-      {swimmers.map(swimmer => {
+      {swimmers.map((swimmer, index) => {
         const swimmerSkills = getSkillsForSwimmer(swimmer);
         const progress = getSwimmerProgress(swimmer.id, swimmerSkills);
+        const achievedCount = swimmerSkills.filter(s => isSkillAchieved(swimmer.id, s.id)).length;
 
         return (
-          <Card key={swimmer.id} className="overflow-hidden">
+          <Card 
+            key={swimmer.id} 
+            className="card-premium overflow-hidden rounded-2xl border-0 animate-slide-up"
+            style={{ animationDelay: `${index * 0.05}s` }}
+          >
             <CardContent className="p-0">
               {/* Swimmer Header */}
-              <div className="flex items-center gap-3 p-4 bg-gradient-to-l from-primary/5 to-transparent border-b">
-                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+              <div className="flex items-center gap-4 p-5 bg-gradient-to-l from-primary/5 via-transparent to-transparent border-b border-border/50">
+                <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center text-lg font-bold text-primary-foreground shadow-glow">
                   {swimmer.first_name?.[0]}{swimmer.last_name?.[0]}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-bold text-lg">
+                  <h3 className="font-bold text-lg flex items-center gap-2">
                     {swimmer.first_name} {swimmer.last_name}
+                    {progress === 100 && (
+                      <Sparkles className="h-4 w-4 text-warning animate-pulse-soft" />
+                    )}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-3 mt-1">
                     <Badge variant="secondary" className="text-xs">
                       {SKILL_LEVEL_MAP[swimmer.skill_level || 'beginner'] || 'מתחיל'}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      {progress}% הושלם
+                      {achievedCount}/{swimmerSkills.length} הושלמו
                     </span>
                   </div>
                 </div>
-                <div className="w-16">
-                  <Progress value={progress} className="h-2" />
+                <div className="w-20 flex flex-col items-center gap-1">
+                  <span className="text-xl font-bold text-primary">{progress}%</span>
+                  <Progress value={progress} className="h-2 w-full" />
                 </div>
               </div>
 
               {/* Skills Grid */}
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {swimmerSkills.length === 0 ? (
-                  <p className="text-muted-foreground text-sm col-span-2">
+                  <p className="text-muted-foreground text-sm col-span-2 text-center py-4">
                     אין מיומנויות מוגדרות לרמה זו
                   </p>
                 ) : (
@@ -250,37 +258,43 @@ export function InlineSkillsEvaluation({ swimmers, classTypeId }: InlineSkillsEv
                         }
                         disabled={toggleSkill.isPending}
                         className={cn(
-                          'flex items-center gap-3 p-3 rounded-lg border transition-all text-right w-full',
-                          'active:scale-[0.98] touch-manipulation',
+                          'flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-right w-full',
+                          'active:scale-[0.98] touch-manipulation relative overflow-hidden',
                           achieved
-                            ? 'bg-green-50 border-green-400 dark:bg-green-950/40 dark:border-green-600'
-                            : 'hover:bg-muted/50 border-muted'
+                            ? 'bg-success/10 border-success/30'
+                            : 'hover:bg-muted/50 border-muted hover:border-primary/30'
                         )}
                       >
+                        {achieved && (
+                          <div className="absolute inset-0 bg-shimmer bg-shimmer animate-shimmer opacity-10" />
+                        )}
                         <Checkbox
                           checked={achieved}
                           className={cn(
-                            'h-7 w-7 rounded-md pointer-events-none',
-                            achieved && 'bg-green-600 border-green-600'
+                            'h-7 w-7 rounded-lg pointer-events-none relative z-10',
+                            achieved && 'bg-success border-success text-success-foreground'
                           )}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 relative z-10">
                           <p
                             className={cn(
                               'font-medium truncate',
-                              achieved && 'text-green-700 dark:text-green-300'
+                              achieved && 'text-success'
                             )}
                           >
                             {skill.name}
                           </p>
                           {skill.required_for_graduation && (
-                            <Badge className="mt-1 bg-amber-500 text-[10px] px-1.5 py-0">
+                            <Badge className="mt-1.5 bg-warning text-warning-foreground text-[10px] px-2 py-0.5 gap-1">
+                              <Award className="h-3 w-3" />
                               חובה
                             </Badge>
                           )}
                         </div>
                         {achieved && (
-                          <Check className="h-5 w-5 text-green-600 shrink-0" />
+                          <div className="w-8 h-8 rounded-full bg-success flex items-center justify-center shrink-0 relative z-10">
+                            <Check className="h-5 w-5 text-success-foreground" />
+                          </div>
                         )}
                       </button>
                     );

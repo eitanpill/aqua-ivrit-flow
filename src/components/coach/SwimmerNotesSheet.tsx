@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Heart, Save, Loader2, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Heart, Save, Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -43,10 +43,8 @@ export function SwimmerNotesSheet({
   const [sessionNote, setSessionNote] = useState(existingNote || '');
   const [profileNote, setProfileNote] = useState(swimmer?.medical_notes || '');
 
-  // Save session note to attendance
   const saveSessionNote = useMutation({
     mutationFn: async () => {
-      // First check if attendance record exists
       const { data: existing } = await supabase
         .from('attendance')
         .select('id')
@@ -61,7 +59,6 @@ export function SwimmerNotesSheet({
           .eq('id', existing.id);
         if (error) throw error;
       } else {
-        // Create attendance record with note
         const { error } = await supabase
           .from('attendance')
           .insert({
@@ -84,7 +81,6 @@ export function SwimmerNotesSheet({
     },
   });
 
-  // Save profile note (medical/general)
   const saveProfileNote = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -115,43 +111,52 @@ export function SwimmerNotesSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[75vh] overflow-y-auto" dir="rtl">
-        <SheetHeader className="pb-4">
-          <SheetTitle className="text-xl flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            הערות - {swimmer.first_name} {swimmer.last_name}
+      <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl" dir="rtl">
+        <SheetHeader className="pb-6">
+          <SheetTitle className="text-2xl flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+              <MessageSquare className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span>הערות - {swimmer.first_name} {swimmer.last_name}</span>
           </SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-base">
             הוסף הערות לשיעור זה או עדכן הערות רפואיות/כלליות
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 pb-20">
+        <div className="space-y-8 pb-24">
           {/* Session Note */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Label className="text-lg font-semibold flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
               הערה לשיעור זה
             </Label>
             <Textarea
               value={sessionNote}
               onChange={(e) => setSessionNote(e.target.value)}
               placeholder="רשום הערות על הביצועים, התנהגות, או כל דבר חשוב מהשיעור..."
-              className="min-h-[120px] text-base leading-relaxed resize-none"
-              style={{ fontSize: '16px' }} // Prevent iOS zoom
+              className="min-h-[140px] text-base leading-relaxed resize-none rounded-xl border-2 focus:border-primary/50 transition-colors"
+              style={{ fontSize: '16px' }}
             />
             <p className="text-sm text-muted-foreground">
               הערה זו תישמר עבור שיעור זה בלבד
             </p>
           </div>
 
+          {/* Divider */}
+          <div className="divider-gradient" />
+
           {/* Medical/General Notes */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Label className="text-lg font-semibold flex items-center gap-2">
-              <Heart className="h-4 w-4 text-red-500" />
+              <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <Heart className="h-4 w-4 text-destructive" />
+              </div>
               הערות רפואיות / כלליות
               {swimmer.medical_notes && (
-                <Badge variant="destructive" className="gap-1">
+                <Badge variant="destructive" className="gap-1 mr-2">
                   <AlertTriangle className="h-3 w-3" />
                   קיימת הערה
                 </Badge>
@@ -159,11 +164,12 @@ export function SwimmerNotesSheet({
             </Label>
             
             {swimmer.medical_notes && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
-                <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+              <div className="p-4 bg-destructive/5 rounded-xl border-2 border-destructive/20">
+                <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
                   הערה קיימת:
                 </p>
-                <p className="text-red-700 dark:text-red-300">
+                <p className="text-destructive/80 leading-relaxed">
                   {swimmer.medical_notes}
                 </p>
               </div>
@@ -173,7 +179,7 @@ export function SwimmerNotesSheet({
               value={profileNote}
               onChange={(e) => setProfileNote(e.target.value)}
               placeholder="הערות רפואיות, אלרגיות, פחדים, או מידע חשוב אחר..."
-              className="min-h-[120px] text-base leading-relaxed resize-none"
+              className="min-h-[140px] text-base leading-relaxed resize-none rounded-xl border-2 focus:border-destructive/50 transition-colors"
               style={{ fontSize: '16px' }}
             />
             <p className="text-sm text-muted-foreground">
@@ -183,11 +189,11 @@ export function SwimmerNotesSheet({
         </div>
 
         {/* Fixed Save Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t">
+        <div className="fixed bottom-0 left-0 right-0 p-4 glass-strong border-t-0">
           <Button
             onClick={handleSaveAll}
             disabled={isSaving}
-            className="w-full h-14 text-lg gap-2"
+            className="w-full h-14 text-lg gap-2 btn-premium rounded-2xl font-bold"
             size="lg"
           >
             {isSaving ? (
