@@ -12,6 +12,7 @@ import UsersPage from "@/pages/UsersPage";
 import Settings from "@/pages/Settings";
 import Pedagogy from "@/pages/Pedagogy";
 import Products from "@/pages/Products";
+import Calendar from "@/pages/Calendar";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             }
           >
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/locations" element={<Locations />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<Settings />} />

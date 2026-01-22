@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 const mainMenuItems = [
   { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
+  { title: "יומן שיעורים", url: "/calendar", icon: CalendarDays },
   { title: "ניהול בריכות", url: "/locations", icon: MapPin },
   { title: "משתמשים", url: "/users", icon: Users },
 ];
