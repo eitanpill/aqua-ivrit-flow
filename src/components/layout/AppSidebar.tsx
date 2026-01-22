@@ -29,23 +29,30 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { role, isAdmin, isCoach, isCustomer, isStaff } = useAuth();
+  const { isAdmin, isCoach, isCustomer, isStaff } = useAuth();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
 
-  // Build menu items based on role
+  // Customer-only navigation (simple and focused)
+  const getCustomerOnlyMenuItems = (): MenuItem[] => {
+    return [
+      { title: "בית", url: "/dashboard", icon: LayoutDashboard },
+      { title: "המשפחה שלי", url: "/family", icon: UserCircle },
+      { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
+      { title: "תשלומים", url: "/billing", icon: Receipt },
+      { title: "הגדרות", url: "/settings", icon: Settings },
+    ];
+  };
+
+  // Staff menu items (Admin + Coach)
   const getMainMenuItems = (): MenuItem[] => {
     const items: MenuItem[] = [
       { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
+      { title: "יומן שיעורים", url: "/calendar", icon: CalendarDays },
     ];
-
-    // Admin and Coach can see calendar
-    if (isStaff) {
-      items.push({ title: "יומן שיעורים", url: "/calendar", icon: CalendarDays });
-    }
 
     // Admin only
     if (isAdmin) {
@@ -60,18 +67,17 @@ export function AppSidebar() {
   };
 
   const getCoachMenuItems = (): MenuItem[] => {
-    if (!isStaff) return [];
     return [
       { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
     ];
   };
 
-  const getCustomerMenuItems = (): MenuItem[] => {
-    // All users can see customer menu items (for parents/customers)
+  const getStaffCustomerMenuItems = (): MenuItem[] => {
+    // Staff can also access customer features (for testing or personal use)
     return [
       { title: "המשפחה שלי", url: "/family", icon: UserCircle },
       { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
-      { title: "תשלומים וחשבוניות", url: "/billing", icon: Receipt },
+      { title: "תשלומים", url: "/billing", icon: Receipt },
     ];
   };
 
@@ -86,13 +92,17 @@ export function AppSidebar() {
   const getSettingsMenuItems = (): MenuItem[] => {
     if (!isAdmin) return [];
     return [
-      { title: "הגדרות", url: "/settings", icon: Settings },
+      { title: "הגדרות מערכת", url: "/settings", icon: Settings },
     ];
   };
 
-  const mainMenuItems = getMainMenuItems();
-  const coachMenuItems = getCoachMenuItems();
-  const customerMenuItems = getCustomerMenuItems();
+  // For customers, show simplified menu
+  const customerOnlyMenuItems = isCustomer && !isStaff ? getCustomerOnlyMenuItems() : [];
+  
+  // For staff, show full menu
+  const mainMenuItems = isStaff ? getMainMenuItems() : [];
+  const coachMenuItems = isStaff ? getCoachMenuItems() : [];
+  const staffCustomerMenuItems = isStaff ? getStaffCustomerMenuItems() : [];
   const academicMenuItems = getAcademicMenuItems();
   const settingsMenuItems = getSettingsMenuItems();
 
@@ -143,6 +153,17 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Customer-only simplified menu */}
+        {customerOnlyMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">תפריט</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(customerOnlyMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Staff menu sections */}
         {mainMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
@@ -161,11 +182,11 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {customerMenuItems.length > 0 && (
+        {staffCustomerMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">לקוחות</SidebarGroupLabel>
             <SidebarGroupContent>
-              {renderMenuItems(customerMenuItems)}
+              {renderMenuItems(staffCustomerMenuItems)}
             </SidebarGroupContent>
           </SidebarGroup>
         )}

@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import Locations from "@/pages/Locations";
 import UsersPage from "@/pages/UsersPage";
 import Settings from "@/pages/Settings";
+import CustomerSettings from "@/pages/CustomerSettings";
 import Pedagogy from "@/pages/Pedagogy";
 import Products from "@/pages/Products";
 import Calendar from "@/pages/Calendar";
@@ -22,8 +23,15 @@ import CoachDashboard from "@/pages/CoachDashboard";
 import Billing from "@/pages/Billing";
 import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
+import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
+
+// Settings route that shows appropriate page based on role
+function SettingsRoute() {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <Settings /> : <CustomerSettings />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -47,6 +55,7 @@ const App = () => (
               <Route path="/family" element={<MyFamily />} />
               <Route path="/booking" element={<Booking />} />
               <Route path="/billing" element={<Billing />} />
+              <Route path="/settings" element={<SettingsRoute />} />
               
               {/* Staff only (admin + coach) */}
               <Route path="/calendar" element={<StaffRoute><Calendar /></StaffRoute>} />
@@ -55,7 +64,6 @@ const App = () => (
               {/* Admin only */}
               <Route path="/locations" element={<AdminRoute><Locations /></AdminRoute>} />
               <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
-              <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
               <Route path="/pedagogy" element={<AdminRoute><Pedagogy /></AdminRoute>} />
               <Route path="/products" element={<AdminRoute><Products /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
