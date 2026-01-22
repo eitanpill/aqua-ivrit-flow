@@ -82,6 +82,99 @@ export type Database = {
           },
         ]
       }
+      charges: {
+        Row: {
+          base_amount: number
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          discount_id: string | null
+          due_date: string
+          final_amount: number
+          id: string
+          paid_at: string | null
+          parent_id: string
+          product_id: string | null
+          proration_amount: number | null
+          status: string
+          subscription_id: string | null
+          swimmer_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_amount: number
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_id?: string | null
+          due_date?: string
+          final_amount: number
+          id?: string
+          paid_at?: string | null
+          parent_id: string
+          product_id?: string | null
+          proration_amount?: number | null
+          status?: string
+          subscription_id?: string | null
+          swimmer_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_amount?: number
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_id?: string | null
+          due_date?: string
+          final_amount?: number
+          id?: string
+          paid_at?: string | null
+          parent_id?: string
+          product_id?: string | null
+          proration_amount?: number | null
+          status?: string
+          subscription_id?: string | null
+          swimmer_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charges_discount_id_fkey"
+            columns: ["discount_id"]
+            isOneToOne: false
+            referencedRelation: "discounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charges_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charges_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charges_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charges_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_levels: {
         Row: {
           created_at: string
@@ -225,6 +318,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      discounts: {
+        Row: {
+          active: boolean
+          auto_apply: boolean
+          created_at: string
+          description: string | null
+          id: string
+          max_uses: number | null
+          min_children: number | null
+          name: string
+          type: Database["public"]["Enums"]["discount_type"]
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          auto_apply?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_uses?: number | null
+          min_children?: number | null
+          name: string
+          type?: Database["public"]["Enums"]["discount_type"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          value: number
+        }
+        Update: {
+          active?: boolean
+          auto_apply?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_uses?: number | null
+          min_children?: number | null
+          name?: string
+          type?: Database["public"]["Enums"]["discount_type"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          value?: number
+        }
+        Relationships: []
       }
       enrollments: {
         Row: {
@@ -832,6 +973,73 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          next_billing_date: string | null
+          notes: string | null
+          parent_id: string
+          price_override: number | null
+          product_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          swimmer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          next_billing_date?: string | null
+          notes?: string | null
+          parent_id: string
+          price_override?: number | null
+          product_id: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          swimmer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          next_billing_date?: string | null
+          notes?: string | null
+          parent_id?: string
+          price_override?: number | null
+          product_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          swimmer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       swimmer_evaluations: {
         Row: {
           achieved: boolean
@@ -1166,6 +1374,16 @@ export type Database = {
         }
         Returns: Json
       }
+      calculate_proration: {
+        Args: {
+          p_base_price: number
+          p_period_end: string
+          p_period_start: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      check_family_discount: { Args: { p_parent_id: string }; Returns: Json }
       check_pool_conflict: {
         Args: {
           p_end_time: string
@@ -1175,9 +1393,30 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_charge_with_calculations: {
+        Args: {
+          p_apply_family_discount?: boolean
+          p_parent_id: string
+          p_product_id: string
+          p_start_date?: string
+          p_swimmer_id: string
+        }
+        Returns: Json
+      }
       generate_sessions_from_series: {
         Args: { p_series_id: string }
         Returns: Json
+      }
+      get_family_debts: {
+        Args: never
+        Returns: {
+          oldest_due_date: string
+          parent_email: string
+          parent_id: string
+          parent_name: string
+          pending_charges_count: number
+          total_pending: number
+        }[]
       }
       get_next_waitlist_position: {
         Args: { p_session_id: string }
@@ -1216,6 +1455,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "coach" | "customer"
       attendance_status: "present" | "absent" | "late" | "excused"
+      discount_type: "percentage" | "fixed" | "family"
       enrollment_status:
         | "pending"
         | "confirmed"
@@ -1228,6 +1468,7 @@ export type Database = {
       resource_type: "pool" | "lane"
       session_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       skill_level: "beginner" | "intermediate" | "advanced" | "competitive"
+      subscription_status: "active" | "paused" | "cancelled" | "expired"
       wallet_transaction_type:
         | "purchase"
         | "usage"
@@ -1363,6 +1604,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "coach", "customer"],
       attendance_status: ["present", "absent", "late", "excused"],
+      discount_type: ["percentage", "fixed", "family"],
       enrollment_status: [
         "pending",
         "confirmed",
@@ -1376,6 +1618,7 @@ export const Constants = {
       resource_type: ["pool", "lane"],
       session_status: ["scheduled", "in_progress", "completed", "cancelled"],
       skill_level: ["beginner", "intermediate", "advanced", "competitive"],
+      subscription_status: ["active", "paused", "cancelled", "expired"],
       wallet_transaction_type: [
         "purchase",
         "usage",
