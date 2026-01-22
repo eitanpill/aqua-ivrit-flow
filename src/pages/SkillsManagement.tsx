@@ -299,12 +299,12 @@ export default function SkillsManagement() {
 
               <div className="space-y-2">
                 <Label>רמה</Label>
-                <Select value={skillLevelId} onValueChange={setSkillLevelId}>
+                <Select value={skillLevelId || "general"} onValueChange={(val) => setSkillLevelId(val === "general" ? "" : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="בחר רמה (אופציונלי)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">כללי</SelectItem>
+                    <SelectItem value="general">כללי</SelectItem>
                     {levels.map((level) => (
                       <SelectItem key={level.id} value={level.id}>
                         {level.name}
