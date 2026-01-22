@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Plus, Edit, Trash2, Calendar, CreditCard, Gift } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Calendar, CreditCard, ChevronLeft, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -23,12 +23,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,10 +35,12 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { format, differenceInYears } from 'date-fns';
+import { differenceInYears } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { SwimmerProgress } from '@/components/customer/SwimmerProgress';
-import { SwimmerEnrollments } from '@/components/booking/SwimmerEnrollments';
+import { CoachNotesDisplay } from '@/components/customer/CoachNotesDisplay';
+import { SwimmerDetailSheet } from '@/components/customer/SwimmerDetailSheet';
+import { ParentProfileCard } from '@/components/customer/ParentProfileCard';
 import { WaitlistNotification } from '@/components/booking/WaitlistNotification';
 
 const SKILL_LEVELS = {
@@ -66,6 +62,7 @@ export default function MyFamily() {
   const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSwimmer, setEditingSwimmer] = useState<any>(null);
+  const [selectedSwimmer, setSelectedSwimmer] = useState<any>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -249,13 +246,14 @@ export default function MyFamily() {
         <div className="space-y-2">
           <Label htmlFor="gender">מגדר</Label>
           <Select
-            value={formData.gender}
-            onValueChange={(value) => setFormData({ ...formData, gender: value })}
+            value={formData.gender || "not_selected"}
+            onValueChange={(value) => setFormData({ ...formData, gender: value === "not_selected" ? "" : value })}
           >
             <SelectTrigger>
               <SelectValue placeholder="בחר מגדר" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="not_selected">בחר מגדר</SelectItem>
               {Object.entries(GENDER_OPTIONS).map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
@@ -327,7 +325,7 @@ export default function MyFamily() {
             המשפחה שלי
           </h1>
           <p className="text-muted-foreground mt-1">
-            ניהול הילדים והרשמה לשיעורים
+            ניהול פרטי המשפחה, הילדים והרשמות לשיעורים
           </p>
         </div>
 
@@ -353,6 +351,9 @@ export default function MyFamily() {
         </div>
       </div>
 
+      {/* Parent Profile Card */}
+      <ParentProfileCard />
+
       {/* Wallet Card */}
       <Card className="bg-gradient-to-l from-primary/10 to-primary/5 border-primary/20">
         <CardHeader className="pb-2">
@@ -370,6 +371,12 @@ export default function MyFamily() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Section Title for Children */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">הילדים שלי</h2>
+        <Badge variant="secondary">{swimmers.length} ילדים</Badge>
+      </div>
 
       {/* Children Grid */}
       {isLoading ? (
@@ -416,41 +423,35 @@ export default function MyFamily() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   {/* Progress Bar */}
-                  <div className="mb-4">
-                    <SwimmerProgress
-                      swimmerId={swimmer.id}
-                      swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
-                      compact
-                    />
-                  </div>
+                  <SwimmerProgress
+                    swimmerId={swimmer.id}
+                    swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
+                    compact
+                  />
+
+                  {/* Coach Notes Preview */}
+                  <CoachNotesDisplay swimmerId={swimmer.id} compact />
 
                   {swimmer.medical_notes && (
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {swimmer.medical_notes}
+                    <p className="text-sm text-muted-foreground line-clamp-2 bg-red-50 dark:bg-red-950/20 p-2 rounded text-red-800 dark:text-red-200">
+                      ⚕️ {swimmer.medical_notes}
                     </p>
                   )}
 
-                  {/* Upcoming Enrollments */}
-                  <Accordion type="single" collapsible className="mb-4">
-                    <AccordionItem value="enrollments" className="border-0">
-                      <AccordionTrigger className="text-sm py-2 hover:no-underline">
-                        <span className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          שיעורים קרובים
-                        </span>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <SwimmerEnrollments
-                          swimmerId={swimmer.id}
-                          swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
-                        />
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                  
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-1 flex-1"
+                      onClick={() => setSelectedSwimmer(swimmer)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      פרטים מלאים
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+
                     <Dialog
                       open={editingSwimmer?.id === swimmer.id}
                       onOpenChange={(open) => !open && setEditingSwimmer(null)}
@@ -463,7 +464,6 @@ export default function MyFamily() {
                           onClick={() => handleEdit(swimmer)}
                         >
                           <Edit className="h-3 w-3" />
-                          עריכה
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[500px]" dir="rtl">
@@ -476,9 +476,8 @@ export default function MyFamily() {
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-destructive gap-1">
+                        <Button variant="ghost" size="sm" className="text-destructive">
                           <Trash2 className="h-3 w-3" />
-                          הסרה
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent dir="rtl">
@@ -506,6 +505,13 @@ export default function MyFamily() {
           })}
         </div>
       )}
+
+      {/* Swimmer Detail Sheet */}
+      <SwimmerDetailSheet
+        swimmer={selectedSwimmer}
+        open={!!selectedSwimmer}
+        onOpenChange={(open) => !open && setSelectedSwimmer(null)}
+      />
     </div>
   );
 }
