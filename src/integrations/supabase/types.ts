@@ -524,6 +524,79 @@ export type Database = {
           },
         ]
       }
+      schedule_series: {
+        Row: {
+          active: boolean
+          class_type_id: string
+          coach_id: string | null
+          created_at: string
+          day_of_week: number
+          duration_minutes: number
+          id: string
+          max_participants: number | null
+          name: string
+          recurrence_weeks: number
+          resource_id: string | null
+          start_time: string
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          class_type_id: string
+          coach_id?: string | null
+          created_at?: string
+          day_of_week: number
+          duration_minutes?: number
+          id?: string
+          max_participants?: number | null
+          name: string
+          recurrence_weeks?: number
+          resource_id?: string | null
+          start_time: string
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          class_type_id?: string
+          coach_id?: string | null
+          created_at?: string
+          day_of_week?: number
+          duration_minutes?: number
+          id?: string
+          max_participants?: number | null
+          name?: string
+          recurrence_weeks?: number
+          resource_id?: string | null
+          start_time?: string
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_series_class_type_id_fkey"
+            columns: ["class_type_id"]
+            isOneToOne: false
+            referencedRelation: "class_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_series_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_series_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_templates: {
         Row: {
           active: boolean
@@ -632,9 +705,11 @@ export type Database = {
           created_at: string
           end_time: string
           id: string
+          is_cancelled: boolean
           max_participants: number | null
           notes: string | null
           resource_id: string | null
+          series_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["session_status"]
           template_id: string | null
@@ -646,9 +721,11 @@ export type Database = {
           created_at?: string
           end_time: string
           id?: string
+          is_cancelled?: boolean
           max_participants?: number | null
           notes?: string | null
           resource_id?: string | null
+          series_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["session_status"]
           template_id?: string | null
@@ -660,9 +737,11 @@ export type Database = {
           created_at?: string
           end_time?: string
           id?: string
+          is_cancelled?: boolean
           max_participants?: number | null
           notes?: string | null
           resource_id?: string | null
+          series_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["session_status"]
           template_id?: string | null
@@ -688,6 +767,13 @@ export type Database = {
             columns: ["resource_id"]
             isOneToOne: false
             referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_series"
             referencedColumns: ["id"]
           },
           {
@@ -869,6 +955,36 @@ export type Database = {
         }
         Relationships: []
       }
+      terms: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -1033,6 +1149,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_pool_conflict: {
+        Args: {
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_resource_id: string
+          p_start_time: string
+        }
+        Returns: boolean
+      }
+      generate_sessions_from_series: {
+        Args: { p_series_id: string }
+        Returns: Json
+      }
       get_next_waitlist_position: {
         Args: { p_session_id: string }
         Returns: number

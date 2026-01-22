@@ -22,6 +22,7 @@ import Booking from "@/pages/Booking";
 import CoachDashboard from "@/pages/CoachDashboard";
 import Billing from "@/pages/Billing";
 import Reports from "@/pages/Reports";
+import ScheduleBuilder from "@/pages/ScheduleBuilder";
 import NotFound from "@/pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/pedagogy" element={<AdminRoute><Pedagogy /></AdminRoute>} />
               <Route path="/products" element={<AdminRoute><Products /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+              <Route path="/schedule-builder" element={<AdminRoute><ScheduleBuilder /></AdminRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
