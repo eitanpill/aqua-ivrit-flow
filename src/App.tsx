@@ -17,6 +17,7 @@ import MyFamily from "@/pages/MyFamily";
 import Booking from "@/pages/Booking";
 import CoachDashboard from "@/pages/CoachDashboard";
 import Billing from "@/pages/Billing";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/booking" element={<Booking />} />
             <Route path="/coach" element={<CoachDashboard />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/reports" element={<Reports />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
