@@ -23,6 +23,7 @@ import CoachDashboard from "@/pages/CoachDashboard";
 import Billing from "@/pages/Billing";
 import Reports from "@/pages/Reports";
 import ScheduleBuilder from "@/pages/ScheduleBuilder";
+import EnrollmentWizard from "@/pages/EnrollmentWizard";
 import NotFound from "@/pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="/products" element={<AdminRoute><Products /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
               <Route path="/schedule-builder" element={<AdminRoute><ScheduleBuilder /></AdminRoute>} />
+              <Route path="/enrollment-wizard" element={<AdminRoute><EnrollmentWizard /></AdminRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

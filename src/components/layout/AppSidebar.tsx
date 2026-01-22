@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -58,6 +58,7 @@ export function AppSidebar() {
     if (isAdmin) {
       items.push(
         { title: "בונה מערכת שעות", url: "/schedule-builder", icon: CalendarCog },
+        { title: "אשף הרשמות", url: "/enrollment-wizard", icon: UserCheck },
         { title: "ניהול בריכות", url: "/locations", icon: MapPin },
         { title: "משתמשים", url: "/users", icon: Users },
         { title: "דוחות ושכר", url: "/reports", icon: BarChart3 }
