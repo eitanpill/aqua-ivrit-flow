@@ -87,6 +87,8 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          max_age: number | null
+          min_age: number | null
           name: string
           sort_order: number | null
           updated_at: string
@@ -95,6 +97,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          max_age?: number | null
+          min_age?: number | null
           name: string
           sort_order?: number | null
           updated_at?: string
@@ -103,6 +107,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          max_age?: number | null
+          min_age?: number | null
           name?: string
           sort_order?: number | null
           updated_at?: string
@@ -230,6 +236,7 @@ export type Database = {
           session_id: string
           status: Database["public"]["Enums"]["enrollment_status"]
           swimmer_id: string
+          type: Database["public"]["Enums"]["enrollment_type"]
           updated_at: string
         }
         Insert: {
@@ -241,6 +248,7 @@ export type Database = {
           session_id: string
           status?: Database["public"]["Enums"]["enrollment_status"]
           swimmer_id: string
+          type?: Database["public"]["Enums"]["enrollment_type"]
           updated_at?: string
         }
         Update: {
@@ -252,6 +260,7 @@ export type Database = {
           session_id?: string
           status?: Database["public"]["Enums"]["enrollment_status"]
           swimmer_id?: string
+          type?: Database["public"]["Enums"]["enrollment_type"]
           updated_at?: string
         }
         Relationships: [
@@ -1149,6 +1158,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_to_waitlist: {
+        Args: {
+          p_parent_id: string
+          p_session_id: string
+          p_swimmer_id: string
+        }
+        Returns: Json
+      }
       check_pool_conflict: {
         Args: {
           p_end_time: string
@@ -1166,6 +1183,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      get_session_availability: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1178,8 +1199,17 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
       set_user_role_by_email: {
         Args: { _email: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: Json
+      }
+      validate_enrollment: {
+        Args: {
+          p_force_override?: boolean
+          p_session_id: string
+          p_swimmer_id: string
+        }
         Returns: Json
       }
     }
@@ -1192,6 +1222,7 @@ export type Database = {
         | "cancelled"
         | "attended"
         | "no_show"
+      enrollment_type: "permanent" | "single" | "makeup"
       gender_type: "male" | "female" | "other"
       product_type: "subscription" | "punch_card" | "single_session" | "trial"
       resource_type: "pool" | "lane"
@@ -1339,6 +1370,7 @@ export const Constants = {
         "attended",
         "no_show",
       ],
+      enrollment_type: ["permanent", "single", "makeup"],
       gender_type: ["male", "female", "other"],
       product_type: ["subscription", "punch_card", "single_session", "trial"],
       resource_type: ["pool", "lane"],
