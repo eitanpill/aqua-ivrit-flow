@@ -308,6 +308,74 @@ export type Database = {
         }
         Relationships: []
       }
+      make_up_tokens: {
+        Row: {
+          created_at: string
+          expiry_date: string
+          id: string
+          issued_by: string | null
+          original_enrollment_id: string | null
+          reason: string | null
+          swimmer_id: string
+          updated_at: string
+          used_at: string | null
+          used_for_enrollment_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expiry_date: string
+          id?: string
+          issued_by?: string | null
+          original_enrollment_id?: string | null
+          reason?: string | null
+          swimmer_id: string
+          updated_at?: string
+          used_at?: string | null
+          used_for_enrollment_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          issued_by?: string | null
+          original_enrollment_id?: string | null
+          reason?: string | null
+          swimmer_id?: string
+          updated_at?: string
+          used_at?: string | null
+          used_for_enrollment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "make_up_tokens_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "make_up_tokens_original_enrollment_id_fkey"
+            columns: ["original_enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "make_up_tokens_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "make_up_tokens_used_for_enrollment_id_fkey"
+            columns: ["used_for_enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -736,6 +804,33 @@ export type Database = {
           },
         ]
       }
+      system_policies: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -768,6 +863,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      waitlist: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          notified_at: string | null
+          parent_id: string
+          position: number
+          session_id: string
+          status: string
+          swimmer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          notified_at?: string | null
+          parent_id: string
+          position: number
+          session_id: string
+          status?: string
+          swimmer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          notified_at?: string | null
+          parent_id?: string
+          position?: number
+          session_id?: string
+          status?: string
+          swimmer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallet_transactions: {
         Row: {
@@ -815,6 +971,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_waitlist_position: {
+        Args: { p_session_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
