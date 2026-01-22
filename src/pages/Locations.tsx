@@ -20,8 +20,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, MapPin, Phone, Edit, Trash2 } from "lucide-react";
+import { Plus, MapPin, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Location {
   id: string;
@@ -194,11 +195,13 @@ export default function Locations() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <MapPin className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">אין בריכות במערכת עדיין</p>
-              <p className="text-sm text-muted-foreground">לחץ על "הוסף בריכה" כדי להתחיל</p>
-            </div>
+            <EmptyState
+              icon={MapPin}
+              title="אין בריכות במערכת עדיין"
+              description="הוסיפו את הבריכה הראשונה כדי להתחיל להשתמש במערכת"
+              actionLabel="הוסף בריכה"
+              onAction={() => setIsDialogOpen(true)}
+            />
           )}
         </CardContent>
       </Card>

@@ -26,8 +26,10 @@ import ScheduleBuilder from "@/pages/ScheduleBuilder";
 import EnrollmentWizard from "@/pages/EnrollmentWizard";
 import SkillsManagement from "@/pages/SkillsManagement";
 import Substitutions from "@/pages/Substitutions";
+import Onboarding from "@/pages/Onboarding";
 import NotFound from "@/pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,12 @@ const queryClient = new QueryClient();
 function SettingsRoute() {
   const { isAdmin } = useAuth();
   return isAdmin ? <Settings /> : <CustomerSettings />;
+}
+
+// Dashboard with onboarding check for admins
+function DashboardWithOnboarding() {
+  useOnboardingCheck();
+  return <Dashboard />;
 }
 
 const App = () => (
@@ -48,6 +56,14 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               element={
                 <ProtectedRoute>
                   <AppLayout />
@@ -55,7 +71,7 @@ const App = () => (
               }
             >
               {/* All authenticated users */}
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={<DashboardWithOnboarding />} />
               <Route path="/family" element={<MyFamily />} />
               <Route path="/booking" element={<Booking />} />
               <Route path="/billing" element={<Billing />} />
