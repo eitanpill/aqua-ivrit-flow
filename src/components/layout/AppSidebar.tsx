@@ -16,73 +16,118 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
-const mainMenuItems = [
-  { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
-  { title: "יומן שיעורים", url: "/calendar", icon: CalendarDays },
-  { title: "ניהול בריכות", url: "/locations", icon: MapPin },
-  { title: "משתמשים", url: "/users", icon: Users },
-  { title: "דוחות ושכר", url: "/reports", icon: BarChart3 },
-];
-
-const coachMenuItems = [
-  { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
-];
-
-const customerMenuItems = [
-  { title: "המשפחה שלי", url: "/family", icon: UserCircle },
-  { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
-  { title: "תשלומים וחשבוניות", url: "/billing", icon: Receipt },
-];
-
-const academicMenuItems = [
-  { title: "הגדרות פדגוגיות", url: "/pedagogy", icon: GraduationCap },
-  { title: "ניהול מוצרים", url: "/products", icon: Package },
-];
-
-const settingsMenuItems = [
-  { title: "הגדרות", url: "/settings", icon: Settings },
-];
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const { role, isAdmin, isCoach, isCustomer, isStaff } = useAuth();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
 
-  const renderMenuItems = (items: typeof mainMenuItems) => (
-    <SidebarMenu>
-      {items.map((item) => {
-        const isActive = location.pathname === item.url;
-        return (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton asChild>
-              <NavLink
-                to={item.url}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {!collapsed && <span>{item.title}</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      })}
-    </SidebarMenu>
-  );
+  // Build menu items based on role
+  const getMainMenuItems = (): MenuItem[] => {
+    const items: MenuItem[] = [
+      { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
+    ];
+
+    // Admin and Coach can see calendar
+    if (isStaff) {
+      items.push({ title: "יומן שיעורים", url: "/calendar", icon: CalendarDays });
+    }
+
+    // Admin only
+    if (isAdmin) {
+      items.push(
+        { title: "ניהול בריכות", url: "/locations", icon: MapPin },
+        { title: "משתמשים", url: "/users", icon: Users },
+        { title: "דוחות ושכר", url: "/reports", icon: BarChart3 }
+      );
+    }
+
+    return items;
+  };
+
+  const getCoachMenuItems = (): MenuItem[] => {
+    if (!isStaff) return [];
+    return [
+      { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
+    ];
+  };
+
+  const getCustomerMenuItems = (): MenuItem[] => {
+    // All users can see customer menu items (for parents/customers)
+    return [
+      { title: "המשפחה שלי", url: "/family", icon: UserCircle },
+      { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
+      { title: "תשלומים וחשבוניות", url: "/billing", icon: Receipt },
+    ];
+  };
+
+  const getAcademicMenuItems = (): MenuItem[] => {
+    if (!isAdmin) return [];
+    return [
+      { title: "הגדרות פדגוגיות", url: "/pedagogy", icon: GraduationCap },
+      { title: "ניהול מוצרים", url: "/products", icon: Package },
+    ];
+  };
+
+  const getSettingsMenuItems = (): MenuItem[] => {
+    if (!isAdmin) return [];
+    return [
+      { title: "הגדרות", url: "/settings", icon: Settings },
+    ];
+  };
+
+  const mainMenuItems = getMainMenuItems();
+  const coachMenuItems = getCoachMenuItems();
+  const customerMenuItems = getCustomerMenuItems();
+  const academicMenuItems = getAcademicMenuItems();
+  const settingsMenuItems = getSettingsMenuItems();
+
+  const renderMenuItems = (items: MenuItem[]) => {
+    if (items.length === 0) return null;
+    
+    return (
+      <SidebarMenu>
+        {items.map((item) => {
+          const isActive = location.pathname === item.url;
+          return (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild>
+                <NavLink
+                  to={item.url}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {!collapsed && <span>{item.title}</span>}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          );
+        })}
+      </SidebarMenu>
+    );
+  };
 
   return (
-    <Sidebar side="right" collapsible="icon" className="border-s border-sidebar-border">
+    <Sidebar side="right" collapsible="icon" className="border-s border-sidebar-border flex-shrink-0">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
@@ -98,40 +143,50 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {renderMenuItems(mainMenuItems)}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {mainMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(mainMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">מאמנים</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {renderMenuItems(coachMenuItems)}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {coachMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">מאמנים</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(coachMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">לקוחות</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {renderMenuItems(customerMenuItems)}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {customerMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">לקוחות</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(customerMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">אקדמיה</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {renderMenuItems(academicMenuItems)}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {academicMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">אקדמיה</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(academicMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground">מערכת</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {renderMenuItems(settingsMenuItems)}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {settingsMenuItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground">מערכת</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(settingsMenuItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4">

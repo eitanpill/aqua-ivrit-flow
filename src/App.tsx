@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminRoute } from "@/components/auth/AdminRoute";
+import { StaffRoute } from "@/components/auth/StaffRoute";
+import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Locations from "@/pages/Locations";
@@ -28,31 +31,38 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/locations" element={<Locations />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/pedagogy" element={<Pedagogy />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/family" element={<MyFamily />} />
-            <Route path="/booking" element={<Booking />} />
-            <Route path="/coach" element={<CoachDashboard />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/reports" element={<Reports />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* All authenticated users */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/family" element={<MyFamily />} />
+              <Route path="/booking" element={<Booking />} />
+              <Route path="/billing" element={<Billing />} />
+              
+              {/* Staff only (admin + coach) */}
+              <Route path="/calendar" element={<StaffRoute><Calendar /></StaffRoute>} />
+              <Route path="/coach" element={<StaffRoute><CoachDashboard /></StaffRoute>} />
+              
+              {/* Admin only */}
+              <Route path="/locations" element={<AdminRoute><Locations /></AdminRoute>} />
+              <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
+              <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+              <Route path="/pedagogy" element={<AdminRoute><Pedagogy /></AdminRoute>} />
+              <Route path="/products" element={<AdminRoute><Products /></AdminRoute>} />
+              <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
