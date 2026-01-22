@@ -62,6 +62,7 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
   const [attendanceState, setAttendanceState] = useState<Record<string, 'present' | 'absent' | null>>({});
   const [selectedSwimmer, setSelectedSwimmer] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'attendance' | 'skills'>('attendance');
+  
   // Fetch existing attendance records
   const { data: existingAttendance = [] } = useQuery({
     queryKey: ['session-attendance', session.id],
@@ -73,6 +74,18 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
 
       if (error) throw error;
       return data || [];
+    },
+  });
+
+  // Fetch session details including waitlist
+  const { data: sessionDetails } = useQuery({
+    queryKey: ['session-coach-details', session.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase.rpc as any)('get_session_enrollment_details', {
+        p_session_id: session.id,
+      });
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -202,8 +215,14 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
           </Badge>
           <Badge variant="secondary" className="gap-1 px-3 py-1">
             <Users className="h-4 w-4" />
-            סה"כ: {activeEnrollments.length}
+            סה"כ: {activeEnrollments.length}/{session.max_participants || 8}
           </Badge>
+          {sessionDetails?.waitlist_count > 0 && (
+            <Badge className="gap-1 px-3 py-1 bg-amber-100 text-amber-800">
+              <Clock className="h-4 w-4" />
+              ממתינים: {sessionDetails.waitlist_count}
+            </Badge>
+          )}
         </div>
       </div>
 

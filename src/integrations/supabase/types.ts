@@ -850,6 +850,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          allow_overbooking: boolean | null
           class_type_id: string
           coach_id: string | null
           created_at: string
@@ -866,6 +867,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_overbooking?: boolean | null
           class_type_id: string
           coach_id?: string | null
           created_at?: string
@@ -882,6 +884,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_overbooking?: boolean | null
           class_type_id?: string
           coach_id?: string | null
           created_at?: string
@@ -1438,6 +1441,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_promote_from_waitlist: {
+        Args: { p_waitlist_id: string }
+        Returns: Json
+      }
       approve_substitution: {
         Args: { p_sub_coach_id: string; p_substitution_id: string }
         Returns: Json
@@ -1449,6 +1456,10 @@ export type Database = {
           p_period_start: string
           p_start_date: string
         }
+        Returns: Json
+      }
+      cancel_enrollment_with_promotion: {
+        Args: { p_enrollment_id: string; p_notify_waitlist?: boolean }
         Returns: Json
       }
       check_family_discount: { Args: { p_parent_id: string }; Returns: Json }
@@ -1494,6 +1505,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      get_session_enrollment_details: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       get_swimmer_report: { Args: { p_swimmer_id: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
@@ -1510,6 +1525,19 @@ export type Database = {
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
       set_user_role_by_email: {
         Args: { _email: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: Json
+      }
+      smart_enroll_swimmer: {
+        Args: {
+          p_force_override?: boolean
+          p_parent_id?: string
+          p_session_id: string
+          p_swimmer_id: string
+        }
+        Returns: Json
+      }
+      update_session_capacity: {
+        Args: { p_max_participants: number; p_session_id: string }
         Returns: Json
       }
       validate_enrollment: {
