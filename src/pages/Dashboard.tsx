@@ -6,6 +6,7 @@ import { MapPin, Users, Waves, Calendar, DollarSign, TrendingUp, Loader2, UserCi
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { MyBookings } from "@/components/customer/MyBookings";
+import { EmergencyOperations } from "@/components/admin/EmergencyOperations";
 
 interface DashboardStats {
   totalSwimmers: number;
@@ -323,6 +324,13 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
+        </div>
+      )}
+
+      {/* Emergency Operations - Admin Only */}
+      {isAdmin && (
+        <div className="grid gap-6 md:grid-cols-3">
+          <EmergencyOperations />
         </div>
       )}
     </div>
