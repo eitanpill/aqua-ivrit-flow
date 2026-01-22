@@ -26,6 +26,7 @@ interface CalendarFiltersProps {
   selectedCoach: string;
   onLocationChange: (value: string) => void;
   onCoachChange: (value: string) => void;
+  hideCoachFilter?: boolean;
 }
 
 export function CalendarFilters({
@@ -35,6 +36,7 @@ export function CalendarFilters({
   selectedCoach,
   onLocationChange,
   onCoachChange,
+  hideCoachFilter = false,
 }: CalendarFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-lg border">
@@ -62,24 +64,26 @@ export function CalendarFilters({
         </Select>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Label htmlFor="coach-filter" className="text-sm whitespace-nowrap">
-          סנן לפי מאמן
-        </Label>
-        <Select value={selectedCoach} onValueChange={onCoachChange}>
-          <SelectTrigger id="coach-filter" className="w-[180px]">
-            <SelectValue placeholder="כל המאמנים" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">כל המאמנים</SelectItem>
-            {coaches.map((coach) => (
-              <SelectItem key={coach.id} value={coach.id}>
-                {`${coach.first_name || ''} ${coach.last_name || ''}`.trim() || 'לא ידוע'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {!hideCoachFilter && (
+        <div className="flex items-center gap-2">
+          <Label htmlFor="coach-filter" className="text-sm whitespace-nowrap">
+            סנן לפי מאמן
+          </Label>
+          <Select value={selectedCoach} onValueChange={onCoachChange}>
+            <SelectTrigger id="coach-filter" className="w-[180px]">
+              <SelectValue placeholder="כל המאמנים" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">כל המאמנים</SelectItem>
+              {coaches.map((coach) => (
+                <SelectItem key={coach.id} value={coach.id}>
+                  {`${coach.first_name || ''} ${coach.last_name || ''}`.trim() || 'לא ידוע'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   );
 }
