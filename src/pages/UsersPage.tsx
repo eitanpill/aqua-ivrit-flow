@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { WhatsAppButton } from "@/components/ui/whatsapp-button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface UserProfile {
   id: string;
@@ -150,6 +152,7 @@ export default function UsersPage() {
   }
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">ניהול משתמשים</h1>
@@ -214,7 +217,15 @@ export default function UsersPage() {
                           : "ללא שם"}
                       </TableCell>
                       <TableCell dir="ltr" className="text-right">
-                        {user.phone || "-"}
+                        <div className="flex items-center justify-end gap-2">
+                          <span>{user.phone || "-"}</span>
+                          {user.phone && (
+                            <WhatsAppButton
+                              phone={user.phone}
+                              name={`${user.first_name || ""} ${user.last_name || ""}`.trim()}
+                            />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={roleBadgeVariant[user.role]} className="gap-1">
@@ -306,5 +317,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

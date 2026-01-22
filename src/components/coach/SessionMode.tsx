@@ -13,6 +13,7 @@ import {
   XCircle,
   Loader2,
   Star,
+  Phone,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,6 +41,8 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SkillsEvaluation } from './SkillsEvaluation';
+import { WhatsAppButton } from '@/components/ui/whatsapp-button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 interface SessionModeProps {
   session: any;
@@ -157,6 +160,7 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
   const unmarkedCount = activeEnrollments.length - presentCount - absentCount;
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-background pb-24" dir="rtl">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-primary text-primary-foreground p-4 shadow-lg">
@@ -267,6 +271,18 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                             </div>
                           </div>
 
+                          <div className="flex items-center gap-1">
+                            {swimmer?.parent?.phone && (
+                              <WhatsAppButton
+                                phone={swimmer.parent.phone}
+                                name={`הורה של ${swimmer?.first_name}`}
+                                message={`שלום, בקשר לשיעור השחייה של ${swimmer?.first_name}`}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center mb-3">
                           {hasMedicalNotes && (
                             <Badge variant="destructive" className="gap-1 animate-pulse">
                               <AlertTriangle className="h-3 w-3" />
@@ -275,7 +291,7 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                           )}
                         </div>
 
-                        {hasMedicalNotes && (
+                        {hasMedicalNotes && swimmer?.medical_notes && (
                           <div className="mb-3 p-2 bg-red-100 dark:bg-red-950/50 rounded-lg text-sm text-red-800 dark:text-red-200">
                             <strong>הערה רפואית:</strong> {swimmer.medical_notes}
                           </div>
@@ -428,5 +444,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
