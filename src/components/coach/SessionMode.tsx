@@ -16,6 +16,8 @@ import {
   CircleDashed,
   UserX,
   UserCheck,
+  Sparkles,
+  Waves,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,7 +55,6 @@ const SKILL_LEVELS = {
   competitive: 'תחרותי',
 };
 
-// 3-state attendance cycle: null -> present -> absent -> null
 type AttendanceStatus = 'present' | 'absent' | null;
 
 const getNextStatus = (current: AttendanceStatus): AttendanceStatus => {
@@ -74,7 +75,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     existingNote?: string;
   }>({ open: false, swimmer: null, enrollmentId: '' });
 
-  // Fetch existing attendance records
   const { data: existingAttendance = [] } = useQuery({
     queryKey: ['session-attendance', session.id],
     queryFn: async () => {
@@ -88,7 +88,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     },
   });
 
-  // Fetch session details including waitlist
   const { data: sessionDetails } = useQuery({
     queryKey: ['session-coach-details', session.id],
     queryFn: async () => {
@@ -100,7 +99,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     },
   });
 
-  // Initialize attendance state from existing records
   useMemo(() => {
     const initialState: Record<string, AttendanceStatus> = {};
     existingAttendance.forEach((att: any) => {
@@ -114,13 +112,11 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     setAttendanceState(initialState);
   }, [existingAttendance, session.enrollments]);
 
-  // Save attendance mutation
   const saveAttendance = useMutation({
     mutationFn: async (data: { enrollmentId: string; swimmerId: string; status: 'present' | 'absent' | null }) => {
       const existing = existingAttendance.find((a: any) => a.enrollment_id === data.enrollmentId);
 
       if (data.status === null) {
-        // Delete attendance record
         if (existing) {
           const { error } = await supabase
             .from('attendance')
@@ -159,7 +155,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     },
   });
 
-  // Finish session mutation
   const finishSession = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -178,7 +173,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     },
   });
 
-  // Handle 3-state toggle
   const handleAttendanceToggle = useCallback((enrollmentId: string, swimmerId: string) => {
     const currentStatus = attendanceState[enrollmentId];
     const nextStatus = getNextStatus(currentStatus);
@@ -186,7 +180,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
     saveAttendance.mutate({ enrollmentId, swimmerId, status: nextStatus });
   }, [attendanceState, saveAttendance]);
 
-  // Mark all present
   const markAllPresent = useCallback(() => {
     const activeEnrollments = session.enrollments?.filter((e: any) => e.status !== 'cancelled') || [];
     activeEnrollments.forEach((enrollment: any) => {
@@ -207,85 +200,100 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
   const absentCount = Object.values(attendanceState).filter(s => s === 'absent').length;
   const unmarkedCount = activeEnrollments.length - presentCount - absentCount;
 
-  // Get swimmers for skills tab
   const swimmersList = activeEnrollments.map((e: any) => e.swimmer).filter(Boolean);
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background pb-28" dir="rtl">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-primary text-primary-foreground p-4 shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary-foreground hover:bg-primary-foreground/20"
-              onClick={onBack}
-            >
-              <ArrowRight className="h-6 w-6" />
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-lg font-bold">
-                {session.class_type?.name || 'שיעור שחייה'}
-              </h1>
-              <div className="flex items-center gap-3 text-sm opacity-80">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {format(new Date(session.start_time), 'HH:mm')} - {format(new Date(session.end_time), 'HH:mm')}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {session.resource?.name}
-                </span>
+      <div className="min-h-screen pb-28" dir="rtl">
+        {/* Premium Header */}
+        <div className="sticky top-0 z-10 header-premium text-primary-foreground p-5 shadow-glow">
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary-foreground/20 rounded-xl h-11 w-11"
+                onClick={onBack}
+              >
+                <ArrowRight className="h-6 w-6" />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-xl font-bold flex items-center gap-2">
+                  {session.class_type?.name || 'שיעור שחייה'}
+                  <Sparkles className="h-4 w-4 animate-pulse-soft" />
+                </h1>
+                <div className="flex items-center gap-4 text-sm opacity-80 mt-1">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    {format(new Date(session.start_time), 'HH:mm')} - {format(new Date(session.end_time), 'HH:mm')}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" />
+                    {session.resource?.name}
+                  </span>
+                </div>
               </div>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="flex gap-2 justify-center flex-wrap">
+              <Badge className="gap-1.5 px-4 py-2 text-sm glass text-primary-foreground border-0">
+                <CheckCircle2 className="h-4 w-4" />
+                הגיעו: {presentCount}
+              </Badge>
+              <Badge className="gap-1.5 px-4 py-2 text-sm glass text-primary-foreground border-0">
+                <XCircle className="h-4 w-4" />
+                חסרים: {absentCount}
+              </Badge>
+              <Badge className="gap-1.5 px-4 py-2 text-sm glass text-primary-foreground border-0">
+                <Users className="h-4 w-4" />
+                סה"כ: {activeEnrollments.length}/{session.max_participants || 8}
+              </Badge>
+              {sessionDetails?.waitlist_count > 0 && (
+                <Badge className="gap-1.5 px-4 py-2 text-sm bg-warning/20 text-warning-foreground border-0">
+                  <Clock className="h-4 w-4" />
+                  ממתינים: {sessionDetails.waitlist_count}
+                </Badge>
+              )}
             </div>
           </div>
 
-          {/* Attendance Summary */}
-          <div className="flex gap-2 justify-center flex-wrap">
-            <Badge variant="secondary" className="gap-1 px-3 py-1.5 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              הגיעו: {presentCount}
-            </Badge>
-            <Badge variant="secondary" className="gap-1 px-3 py-1.5 text-sm">
-              <XCircle className="h-4 w-4 text-red-600" />
-              חסרים: {absentCount}
-            </Badge>
-            <Badge variant="secondary" className="gap-1 px-3 py-1.5 text-sm">
-              <Users className="h-4 w-4" />
-              סה"כ: {activeEnrollments.length}/{session.max_participants || 8}
-            </Badge>
-            {sessionDetails?.waitlist_count > 0 && (
-              <Badge className="gap-1 px-3 py-1.5 text-sm bg-amber-100 text-amber-800">
-                <Clock className="h-4 w-4" />
-                ממתינים: {sessionDetails.waitlist_count}
-              </Badge>
-            )}
+          {/* Decorative wave */}
+          <div className="absolute bottom-0 left-0 right-0 h-6 overflow-hidden">
+            <svg viewBox="0 0 1200 60" className="w-full h-full fill-background" preserveAspectRatio="none">
+              <path d="M0,60 L0,30 Q150,0 300,30 T600,30 T900,30 T1200,30 L1200,60 Z" />
+            </svg>
           </div>
         </div>
 
-        {/* Tabs for Attendance / Skills */}
+        {/* Tabs */}
         <div className="p-4">
           <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4 h-12">
-              <TabsTrigger value="attendance" className="gap-2 text-base h-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4 h-14 p-1.5 bg-muted/50 rounded-2xl">
+              <TabsTrigger 
+                value="attendance" 
+                className="gap-2 text-base h-full rounded-xl data-[state=active]:shadow-premium data-[state=active]:bg-background font-semibold"
+              >
                 <Users className="h-5 w-5" />
                 נוכחות
               </TabsTrigger>
-              <TabsTrigger value="skills" className="gap-2 text-base h-full">
+              <TabsTrigger 
+                value="skills" 
+                className="gap-2 text-base h-full rounded-xl data-[state=active]:shadow-premium data-[state=active]:bg-background font-semibold"
+              >
                 <Star className="h-5 w-5" />
                 מיומנויות
               </TabsTrigger>
             </TabsList>
 
             {/* Attendance Tab */}
-            <TabsContent value="attendance" className="space-y-3 mt-0">
+            <TabsContent value="attendance" className="space-y-4 mt-0">
               {/* Mark All Present Button */}
               {activeEnrollments.length > 0 && unmarkedCount > 0 && (
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full h-14 text-lg gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                  className="w-full h-14 text-lg gap-2 border-2 border-success/50 text-success hover:bg-success/10 rounded-2xl font-semibold interactive"
                   onClick={markAllPresent}
                   disabled={saveAttendance.isPending}
                 >
@@ -295,15 +303,17 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
               )}
 
               {activeEnrollments.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                    <Users className="h-12 w-12 text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground">אין משתתפים רשומים לשיעור זה</p>
+                <Card className="border-dashed border-2 border-muted bg-muted/20 rounded-2xl">
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                      <Users className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground font-medium">אין משתתפים רשומים לשיעור זה</p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-3">
-                  {activeEnrollments.map((enrollment: any) => {
+                <div className="space-y-4">
+                  {activeEnrollments.map((enrollment: any, index: number) => {
                     const swimmer = enrollment.swimmer;
                     const currentStatus = attendanceState[enrollment.id];
                     const hasMedicalNotes = !!swimmer?.medical_notes;
@@ -315,31 +325,32 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                       <Card
                         key={enrollment.id}
                         className={cn(
-                          'transition-all overflow-hidden',
-                          currentStatus === 'present' && 'ring-2 ring-green-500 bg-green-50/50 dark:bg-green-950/20',
-                          currentStatus === 'absent' && 'ring-2 ring-red-500 bg-red-50/50 dark:bg-red-950/20'
+                          'card-premium overflow-hidden border-0 rounded-2xl animate-slide-up',
+                          currentStatus === 'present' && 'ring-2 ring-success/50 shadow-[0_0_20px_-5px_hsl(var(--success)/0.3)]',
+                          currentStatus === 'absent' && 'ring-2 ring-destructive/50 shadow-[0_0_20px_-5px_hsl(var(--destructive)/0.3)]'
                         )}
+                        style={{ animationDelay: `${index * 0.05}s` }}
                       >
                         <CardContent className="p-0">
                           {/* Medical Warning Banner */}
                           {hasMedicalNotes && (
-                            <div className="bg-red-500 text-white px-4 py-2 flex items-center gap-2 animate-pulse">
-                              <AlertTriangle className="h-5 w-5" />
-                              <span className="font-medium text-sm">רגישות רפואית - {swimmer.medical_notes}</span>
+                            <div className="bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground px-4 py-2.5 flex items-center gap-2">
+                              <AlertTriangle className="h-5 w-5 animate-pulse-soft" />
+                              <span className="font-semibold text-sm truncate">{swimmer.medical_notes}</span>
                             </div>
                           )}
 
-                          <div className="p-4">
+                          <div className="p-5">
                             {/* Swimmer Info Row */}
                             <div className="flex items-center gap-4 mb-4">
-                              {/* Large Avatar */}
+                              {/* Large Avatar with glow */}
                               <div
                                 className={cn(
-                                  'w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold transition-all shrink-0',
+                                  'w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold transition-all shrink-0 shadow-soft',
                                   currentStatus === 'present'
-                                    ? 'bg-green-500 text-white'
+                                    ? 'gradient-primary text-primary-foreground shadow-[0_0_25px_-5px_hsl(var(--success)/0.5)]'
                                     : currentStatus === 'absent'
-                                    ? 'bg-red-500 text-white'
+                                    ? 'bg-destructive text-destructive-foreground shadow-[0_0_25px_-5px_hsl(var(--destructive)/0.5)]'
                                     : 'bg-muted text-muted-foreground'
                                 )}
                               >
@@ -351,18 +362,17 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                                 <h3 className="font-bold text-xl truncate">
                                   {swimmer?.first_name} {swimmer?.last_name}
                                 </h3>
-                                <p className="text-sm text-muted-foreground">
+                                <Badge variant="secondary" className="mt-1 text-xs">
                                   {SKILL_LEVELS[swimmer?.skill_level as keyof typeof SKILL_LEVELS] || 'מתחיל'}
-                                </p>
+                                </Badge>
                               </div>
 
                               {/* Action Buttons */}
                               <div className="flex items-center gap-2 shrink-0">
-                                {/* Notes Button */}
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-12 w-12 rounded-full"
+                                  className="h-12 w-12 rounded-xl hover:bg-primary/10"
                                   onClick={() =>
                                     setNotesSheet({
                                       open: true,
@@ -375,7 +385,6 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                                   <MessageSquare className="h-6 w-6 text-muted-foreground" />
                                 </Button>
 
-                                {/* WhatsApp */}
                                 {swimmer?.parent?.phone && (
                                   <WhatsAppButton
                                     phone={swimmer.parent.phone}
@@ -391,37 +400,41 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                               onClick={() => handleAttendanceToggle(enrollment.id, swimmer.id)}
                               disabled={saveAttendance.isPending}
                               className={cn(
-                                'w-full h-16 rounded-xl flex items-center justify-center gap-3 text-xl font-bold transition-all',
-                                'active:scale-[0.98] touch-manipulation',
+                                'w-full h-16 rounded-2xl flex items-center justify-center gap-3 text-xl font-bold transition-all',
+                                'active:scale-[0.98] touch-manipulation relative overflow-hidden',
                                 currentStatus === null &&
-                                  'bg-muted border-2 border-dashed border-muted-foreground/30 text-muted-foreground',
+                                  'bg-muted/50 border-2 border-dashed border-muted-foreground/30 text-muted-foreground',
                                 currentStatus === 'present' &&
-                                  'bg-green-500 text-white shadow-lg shadow-green-500/30',
+                                  'gradient-primary text-primary-foreground shadow-float',
                                 currentStatus === 'absent' &&
-                                  'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                                  'bg-destructive text-destructive-foreground shadow-float'
                               )}
                             >
+                              {/* Shimmer effect on active states */}
+                              {currentStatus && (
+                                <div className="absolute inset-0 bg-shimmer bg-shimmer animate-shimmer opacity-20" />
+                              )}
+                              
                               {saveAttendance.isPending ? (
-                                <Loader2 className="h-7 w-7 animate-spin" />
+                                <Loader2 className="h-7 w-7 animate-spin relative z-10" />
                               ) : currentStatus === null ? (
                                 <>
-                                  <CircleDashed className="h-7 w-7" />
-                                  טרם סומן
+                                  <CircleDashed className="h-7 w-7 relative z-10" />
+                                  <span className="relative z-10">טרם סומן</span>
                                 </>
                               ) : currentStatus === 'present' ? (
                                 <>
-                                  <UserCheck className="h-7 w-7" />
-                                  הגיע
+                                  <UserCheck className="h-7 w-7 relative z-10" />
+                                  <span className="relative z-10">הגיע</span>
                                 </>
                               ) : (
                                 <>
-                                  <UserX className="h-7 w-7" />
-                                  לא הגיע
+                                  <UserX className="h-7 w-7 relative z-10" />
+                                  <span className="relative z-10">לא הגיע</span>
                                 </>
                               )}
                             </button>
 
-                            {/* Status hint */}
                             <p className="text-center text-xs text-muted-foreground mt-2">
                               לחץ לשינוי סטטוס (טרם סומן → הגיע → לא הגיע)
                             </p>
@@ -455,12 +468,12 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
         />
 
         {/* Fixed Bottom Action Bar */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 p-4 glass-strong border-t-0">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 size="lg"
-                className="w-full h-14 text-lg gap-2"
+                className="w-full h-14 text-lg gap-2 btn-premium rounded-2xl font-bold"
                 disabled={unmarkedCount > 0 || finishSession.isPending}
               >
                 {finishSession.isPending ? (
@@ -471,24 +484,30 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
                 סיים שיעור
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl">
+            <AlertDialogContent dir="rtl" className="rounded-2xl">
               <AlertDialogHeader>
-                <AlertDialogTitle>האם לסיים את השיעור?</AlertDialogTitle>
+                <AlertDialogTitle className="text-xl">האם לסיים את השיעור?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  <div className="space-y-2 text-right">
-                    <p>סיכום נוכחות:</p>
-                    <ul className="list-disc list-inside">
-                      <li>הגיעו: {presentCount} משתתפים</li>
-                      <li>חסרים: {absentCount} משתתפים</li>
-                    </ul>
+                  <div className="space-y-3 text-right mt-4">
+                    <p className="font-medium">סיכום נוכחות:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-success/10 text-success p-3 rounded-xl text-center">
+                        <p className="text-2xl font-bold">{presentCount}</p>
+                        <p className="text-sm">הגיעו</p>
+                      </div>
+                      <div className="bg-destructive/10 text-destructive p-3 rounded-xl text-center">
+                        <p className="text-2xl font-bold">{absentCount}</p>
+                        <p className="text-sm">חסרים</p>
+                      </div>
+                    </div>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex gap-2">
-                <AlertDialogCancel>חזרה</AlertDialogCancel>
+              <AlertDialogFooter className="flex gap-2 mt-4">
+                <AlertDialogCancel className="rounded-xl">חזרה</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => finishSession.mutate()}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-success hover:bg-success/90 rounded-xl"
                 >
                   אישור וסיום
                 </AlertDialogAction>
