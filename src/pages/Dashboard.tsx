@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Users, Waves, Calendar, DollarSign, TrendingUp, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Users, Waves, Calendar, DollarSign, TrendingUp, Loader2, UserCircle, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { MyBookings } from "@/components/customer/MyBookings";
 
 interface DashboardStats {
   totalSwimmers: number;
@@ -14,7 +17,8 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { isAdmin, isCoach, isCustomer, user } = useAuth();
+  const { isAdmin, isCoach, isCustomer, isStaff, user } = useAuth();
+  const navigate = useNavigate();
 
   // Fetch real stats from database
   const { data: stats, isLoading } = useQuery({
@@ -249,31 +253,8 @@ export default function Dashboard() {
       </div>
 
       {/* Customer Dashboard */}
-      {isCustomer && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>השיעורים הבאים שלך</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>לחץ על "הזמנת שיעור" בתפריט כדי לקבוע שיעור</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>הילדים שלי</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>לחץ על "המשפחה שלי" בתפריט כדי להוסיף ילדים</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {isCustomer && !isStaff && (
+        <CustomerDashboard userId={user?.id} navigate={navigate} />
       )}
 
       {/* Staff Dashboard */}
@@ -344,6 +325,188 @@ export default function Dashboard() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Customer-specific dashboard component
+function CustomerDashboard({ userId, navigate }: { userId?: string; navigate: (path: string) => void }) {
+  // Fetch customer's swimmers
+  const { data: swimmers = [], isLoading: swimmersLoading } = useQuery({
+    queryKey: ["my-swimmers-dashboard", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("swimmers")
+        .select("id, first_name, last_name, skill_level")
+        .eq("parent_id", userId)
+        .order("first_name");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId,
+  });
+
+  // Fetch wallet balance
+  const { data: wallet } = useQuery({
+    queryKey: ["my-wallet-dashboard", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_wallets")
+        .select("credits_balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  const SKILL_LEVELS: Record<string, string> = {
+    beginner: "מתחיל",
+    intermediate: "בינוני",
+    advanced: "מתקדם",
+    competitive: "תחרותי",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Stats for Customer */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="card-hover border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              הילדים שלי
+            </CardTitle>
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+              <UserCircle className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{swimmers.length}</div>
+            <Button
+              variant="link"
+              className="p-0 h-auto text-sm text-primary"
+              onClick={() => navigate("/family")}
+            >
+              ניהול הילדים →
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover border-border/50 bg-gradient-to-bl from-primary/5 to-transparent">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              קרדיטים זמינים
+            </CardTitle>
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+              <CreditCard className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">
+              {wallet?.credits_balance ?? 0}
+            </div>
+            <Button
+              variant="link"
+              className="p-0 h-auto text-sm text-primary"
+              onClick={() => navigate("/billing")}
+            >
+              רכישת קרדיטים →
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="card-hover border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              הזמנה מהירה
+            </CardTitle>
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-accent/10 text-accent">
+              <Calendar className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => navigate("/booking")}
+              className="w-full"
+            >
+              הזמן שיעור חדש
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* My Bookings - Real data */}
+        <MyBookings limit={4} />
+
+        {/* My Children */}
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-primary" />
+              הילדים שלי
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/family")}
+            >
+              ניהול
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {swimmersLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : swimmers.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-muted-foreground mb-4">עדיין לא הוספת ילדים</p>
+                <Button onClick={() => navigate("/family")}>
+                  הוסף ילד ראשון
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {swimmers.slice(0, 3).map((swimmer: any) => (
+                  <div
+                    key={swimmer.id}
+                    className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {swimmer.first_name} {swimmer.last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {SKILL_LEVELS[swimmer.skill_level] || "מתחיל"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {swimmers.length > 3 && (
+                  <Button
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => navigate("/family")}
+                  >
+                    צפה בכל {swimmers.length} הילדים
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
