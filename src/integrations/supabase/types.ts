@@ -552,6 +552,102 @@ export type Database = {
           },
         ]
       }
+      skills: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          level_id: string | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_id?: string | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_id?: string | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skills_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "class_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swimmer_evaluations: {
+        Row: {
+          achieved: boolean
+          achieved_at: string | null
+          created_at: string
+          evaluated_by: string | null
+          id: string
+          notes: string | null
+          skill_id: string
+          swimmer_id: string
+          updated_at: string
+        }
+        Insert: {
+          achieved?: boolean
+          achieved_at?: string | null
+          created_at?: string
+          evaluated_by?: string | null
+          id?: string
+          notes?: string | null
+          skill_id: string
+          swimmer_id: string
+          updated_at?: string
+        }
+        Update: {
+          achieved?: boolean
+          achieved_at?: string | null
+          created_at?: string
+          evaluated_by?: string | null
+          id?: string
+          notes?: string | null
+          skill_id?: string
+          swimmer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swimmer_evaluations_evaluated_by_fkey"
+            columns: ["evaluated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swimmer_evaluations_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swimmer_evaluations_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       swimmers: {
         Row: {
           birth_date: string | null

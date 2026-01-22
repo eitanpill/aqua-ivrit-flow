@@ -37,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format, differenceInYears } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { SwimmerProgress } from '@/components/customer/SwimmerProgress';
 
 const SKILL_LEVELS = {
   beginner: 'מתחיל',
@@ -405,6 +406,15 @@ export default function MyFamily() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <SwimmerProgress
+                      swimmerId={swimmer.id}
+                      swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
+                      compact
+                    />
+                  </div>
+
                   {swimmer.medical_notes && (
                     <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                       {swimmer.medical_notes}
