@@ -150,6 +150,44 @@ export type Database = {
           },
         ]
       }
+      coach_rates: {
+        Row: {
+          coach_id: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          rate_per_hour: number
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          rate_per_hour?: number
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          rate_per_hour?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_rates_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_wallets: {
         Row: {
           created_at: string
