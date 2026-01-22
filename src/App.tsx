@@ -13,6 +13,8 @@ import Settings from "@/pages/Settings";
 import Pedagogy from "@/pages/Pedagogy";
 import Products from "@/pages/Products";
 import Calendar from "@/pages/Calendar";
+import MyFamily from "@/pages/MyFamily";
+import Booking from "@/pages/Booking";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/pedagogy" element={<Pedagogy />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/family" element={<MyFamily />} />
+            <Route path="/booking" element={<Booking />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
