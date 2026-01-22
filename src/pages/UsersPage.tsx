@@ -92,15 +92,21 @@ export default function UsersPage() {
     enabled: isAdmin,
   });
 
-  // Mutation to update user role
+  // Get current user id for self-check
+  const { user: currentUser } = useAuth();
+
+  // Mutation to update user role via secure RPC
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      // Update in user_roles table
-      const { error: upsertError } = await supabase
-        .from("user_roles" as any)
-        .upsert({ user_id: userId, role, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      const { data, error } = await supabase
+        .rpc('set_user_role' as any, { _user_id: userId, _role: role });
 
-      if (upsertError) throw upsertError;
+      if (error) throw error;
+      
+      const result = data as unknown as { success: boolean; error?: string };
+      if (!result.success) {
+        throw new Error(result.error || "שגיאה בעדכון התפקיד");
+      }
 
       // Also update profiles for backward compatibility
       const { error: profileError } = await supabase
@@ -108,7 +114,7 @@ export default function UsersPage() {
         .update({ role })
         .eq("id", userId);
 
-      if (profileError) throw profileError;
+      if (profileError) console.warn("Profile sync failed:", profileError);
 
       return { userId, role };
     },
@@ -120,7 +126,7 @@ export default function UsersPage() {
       setSelectedUser(null);
     },
     onError: (error: Error) => {
-      toast.error("שגיאה בעדכון התפקיד: " + error.message);
+      toast.error(error.message);
     },
   });
 
@@ -131,6 +137,11 @@ export default function UsersPage() {
   };
 
   const openRoleDialog = (user: UserProfile) => {
+    // Prevent admin from editing their own role
+    if (user.id === currentUser?.id) {
+      toast.error("לא ניתן לשנות את התפקיד של עצמך");
+      return;
+    }
     setSelectedUser(user);
     setNewRole(user.role);
     setIsDialogOpen(true);
@@ -237,14 +248,20 @@ export default function UsersPage() {
                         {new Date(user.created_at).toLocaleDateString("he-IL")}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openRoleDialog(user)}
-                        >
-                          <UserCog className="h-4 w-4 ml-2" />
-                          שנה תפקיד
-                        </Button>
+                        {user.id === currentUser?.id ? (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            אתה
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openRoleDialog(user)}
+                          >
+                            <UserCog className="h-4 w-4 ml-2" />
+                            שנה תפקיד
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

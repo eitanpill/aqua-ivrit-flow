@@ -1523,6 +1523,13 @@ export type Database = {
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
+      set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: Json
+      }
       set_user_role_by_email: {
         Args: { _email: string; _role: Database["public"]["Enums"]["app_role"] }
         Returns: Json
