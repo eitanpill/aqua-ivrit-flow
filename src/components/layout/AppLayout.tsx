@@ -9,9 +9,10 @@ function MainContent() {
   
   return (
     <div 
-      className="flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ease-linear"
+      className="flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ease-linear overflow-x-hidden"
       style={{ 
-        marginInlineEnd: isOpen ? 'var(--sidebar-width)' : 'var(--sidebar-width-icon)' 
+        // RTL: inline-start = right. We reserve space on the right so the fixed sidebar won't cover content.
+        marginInlineStart: isOpen ? "var(--sidebar-width)" : "var(--sidebar-width-icon)",
       }}
     >
       <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card flex-shrink-0 sticky top-0 z-10">
