@@ -20,6 +20,9 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { HEBREW_DAYS } from '@/lib/session-generator';
+import { MakeUpTokensBanner } from '@/components/booking/MakeUpTokensBanner';
+import { WaitlistNotification } from '@/components/booking/WaitlistNotification';
+import { WaitlistButton } from '@/components/booking/WaitlistButton';
 
 const STEPS = [
   { id: 1, title: 'בחר ילד', icon: User },
@@ -111,7 +114,7 @@ export default function Booking() {
     enabled: currentStep >= 3 && !!selectedLocation,
   });
 
-  // Filter sessions based on location and level
+  // Filter sessions based on location and level (include full sessions for waitlist)
   const filteredSessions = useMemo(() => {
     return sessions.filter((session: any) => {
       if (selectedLocation && session.resource?.location_id !== selectedLocation) {
@@ -120,12 +123,25 @@ export default function Booking() {
       if (selectedLevel && session.class_type?.level_id !== selectedLevel) {
         return false;
       }
-      // Check if session has available spots
-      const enrolledCount = session.enrollments?.length || 0;
-      const maxParticipants = session.max_participants || session.class_type?.max_participants || 8;
-      return enrolledCount < maxParticipants;
+      return true; // Show all sessions, including full ones
     });
   }, [sessions, selectedLocation, selectedLevel]);
+
+  // Check swimmer's waitlist entries
+  const { data: swimmerWaitlist = [] } = useQuery({
+    queryKey: ['swimmer-waitlist', selectedSwimmer?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('waitlist' as any)
+        .select('session_id, position, status')
+        .eq('swimmer_id', selectedSwimmer?.id)
+        .in('status', ['waiting', 'notified']) as any;
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedSwimmer?.id,
+  });
 
   // Check if swimmer already enrolled
   const { data: existingEnrollments = [] } = useQuery({
@@ -392,24 +408,32 @@ export default function Booking() {
                       const enrolledCount = session.enrollments?.length || 0;
                       const maxParticipants = session.max_participants || 8;
                       const spotsLeft = maxParticipants - enrolledCount;
+                      const isFull = spotsLeft <= 0;
+                      const waitlistEntry = swimmerWaitlist.find(
+                        (w: any) => w.session_id === session.id
+                      );
+                      const isOnWaitlist = !!waitlistEntry;
 
                       return (
                         <Card
                           key={session.id}
                           className={cn(
                             'transition-all',
-                            isEnrolled
-                              ? 'opacity-50 cursor-not-allowed'
+                            isEnrolled || isFull
+                              ? 'opacity-75'
                               : 'cursor-pointer hover:shadow-md',
                             selectedSession?.id === session.id
                               ? 'ring-2 ring-primary border-primary'
+                              : '',
+                            isFull && !isEnrolled && !isOnWaitlist
+                              ? 'border-amber-500/30'
                               : ''
                           )}
-                          onClick={() => !isEnrolled && setSelectedSession(session)}
+                          onClick={() => !isEnrolled && !isFull && setSelectedSession(session)}
                         >
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start">
-                              <div>
+                              <div className="flex-1">
                                 <h4 className="font-medium">
                                   {session.class_type?.name || 'שיעור שחייה'}
                                 </h4>
@@ -424,9 +448,21 @@ export default function Booking() {
                                   </p>
                                 )}
                               </div>
-                              <div className="text-left">
+                              <div className="text-left flex flex-col items-end gap-2">
                                 {isEnrolled ? (
                                   <Badge variant="secondary">רשום</Badge>
+                                ) : isFull ? (
+                                  <>
+                                    <Badge variant="destructive">מלא</Badge>
+                                    {selectedSwimmer && (
+                                      <WaitlistButton
+                                        sessionId={session.id}
+                                        swimmerId={selectedSwimmer.id}
+                                        isOnWaitlist={isOnWaitlist}
+                                        waitlistPosition={waitlistEntry?.position}
+                                      />
+                                    )}
+                                  </>
                                 ) : (
                                   <Badge variant={spotsLeft <= 2 ? 'destructive' : 'outline'}>
                                     {spotsLeft} מקומות
@@ -535,11 +571,17 @@ export default function Booking() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6" dir="rtl">
+      {/* Waitlist Notifications */}
+      <WaitlistNotification />
+
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold">הרשמה לשיעורים</h1>
         <p className="text-muted-foreground mt-1">בצע הרשמה בארבעה שלבים פשוטים</p>
       </div>
+
+      {/* Make-up Tokens Banner */}
+      {selectedSwimmer && <MakeUpTokensBanner swimmerId={selectedSwimmer.id} />}
 
       {/* Step Indicator */}
       {currentStep <= 4 && renderStepIndicator()}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Plus, Edit, Trash2, Calendar, CreditCard } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Calendar, CreditCard, Gift } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +44,8 @@ import { toast } from 'sonner';
 import { format, differenceInYears } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { SwimmerProgress } from '@/components/customer/SwimmerProgress';
+import { SwimmerEnrollments } from '@/components/booking/SwimmerEnrollments';
+import { WaitlistNotification } from '@/components/booking/WaitlistNotification';
 
 const SKILL_LEVELS = {
   beginner: 'מתחיל',
@@ -308,6 +316,9 @@ export default function MyFamily() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* Waitlist Notifications */}
+      <WaitlistNotification />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -420,6 +431,25 @@ export default function MyFamily() {
                       {swimmer.medical_notes}
                     </p>
                   )}
+
+                  {/* Upcoming Enrollments */}
+                  <Accordion type="single" collapsible className="mb-4">
+                    <AccordionItem value="enrollments" className="border-0">
+                      <AccordionTrigger className="text-sm py-2 hover:no-underline">
+                        <span className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          שיעורים קרובים
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <SwimmerEnrollments
+                          swimmerId={swimmer.id}
+                          swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                  
                   <div className="flex gap-2">
                     <Dialog
                       open={editingSwimmer?.id === swimmer.id}
