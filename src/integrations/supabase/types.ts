@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      class_levels: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           address: string | null
@@ -37,6 +64,45 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          active: boolean
+          created_at: string
+          credits_amount: number | null
+          description: string | null
+          duration_days: number | null
+          id: string
+          name: string
+          price: number
+          type: Database["public"]["Enums"]["product_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          credits_amount?: number | null
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          name: string
+          price?: number
+          type?: Database["public"]["Enums"]["product_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          credits_amount?: number | null
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          name?: string
+          price?: number
+          type?: Database["public"]["Enums"]["product_type"]
           updated_at?: string
         }
         Relationships: []
@@ -112,6 +178,36 @@ export type Database = {
           },
         ]
       }
+      seasons: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       swimmers: {
         Row: {
           birth_date: string | null
@@ -176,6 +272,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "coach" | "customer"
       gender_type: "male" | "female" | "other"
+      product_type: "subscription" | "punch_card" | "single_session" | "trial"
       resource_type: "pool" | "lane"
       skill_level: "beginner" | "intermediate" | "advanced" | "competitive"
     }
@@ -307,6 +404,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "coach", "customer"],
       gender_type: ["male", "female", "other"],
+      product_type: ["subscription", "punch_card", "single_session", "trial"],
       resource_type: ["pool", "lane"],
       skill_level: ["beginner", "intermediate", "advanced", "competitive"],
     },
