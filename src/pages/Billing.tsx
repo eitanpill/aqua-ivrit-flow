@@ -42,6 +42,7 @@ interface Invoice {
 }
 
 const Billing = () => {
+  // Billing page - displays transactions and invoices for the current user
   const { user } = useAuth();
   const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
 
