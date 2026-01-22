@@ -40,6 +40,7 @@ export default function Booking() {
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedLevel, setSelectedLevel] = useState<string>('');
   const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [enrollmentResult, setEnrollmentResult] = useState<{ action: string; position?: number } | null>(null);
 
   // Fetch swimmers
   const { data: swimmers = [] } = useQuery({
@@ -159,29 +160,36 @@ export default function Booking() {
     enabled: !!selectedSwimmer?.id,
   });
 
-  // Enroll mutation
+  // Smart enrollment mutation using the new RPC function
   const enrollMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase
-        .from('enrollments' as any)
-        .insert({
-          session_id: selectedSession.id,
-          swimmer_id: selectedSwimmer.id,
-          enrolled_by: user?.id,
-          status: 'confirmed',
-        } as any) as any);
+      const { data, error } = await (supabase.rpc as any)('smart_enroll_swimmer', {
+        p_session_id: selectedSession.id,
+        p_swimmer_id: selectedSwimmer.id,
+        p_parent_id: user?.id,
+        p_force_override: false,
+      });
 
-      if (error) {
-        if (error.message?.includes('הילד כבר רשום')) {
-          throw new Error('הילד כבר רשום לשעה זו');
-        }
-        throw error;
+      if (error) throw error;
+      
+      if (!data?.success) {
+        throw new Error(data?.message || 'שגיאה בהרשמה');
       }
+      
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['available-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['swimmer-enrollments'] });
-      toast.success('ההרשמה בוצעה בהצלחה!');
+      queryClient.invalidateQueries({ queryKey: ['swimmer-waitlist'] });
+      
+      setEnrollmentResult({ action: result.action, position: result.position });
+      
+      if (result.action === 'enrolled') {
+        toast.success('ההרשמה בוצעה בהצלחה!');
+      } else if (result.action === 'waitlisted') {
+        toast.success(`נוספת לרשימת ההמתנה במקום ${result.position}`);
+      }
       setCurrentStep(5); // Success state
     },
     onError: (error: any) => {
@@ -418,18 +426,25 @@ export default function Booking() {
                         <Card
                           key={session.id}
                           className={cn(
-                            'transition-all',
-                            isEnrolled || isFull
-                              ? 'opacity-75'
-                              : 'cursor-pointer hover:shadow-md',
+                            'transition-all cursor-pointer hover:shadow-md',
+                            isEnrolled
+                              ? 'opacity-75 cursor-not-allowed'
+                              : '',
                             selectedSession?.id === session.id
                               ? 'ring-2 ring-primary border-primary'
                               : '',
                             isFull && !isEnrolled && !isOnWaitlist
-                              ? 'border-amber-500/30'
+                              ? 'border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/10'
+                              : '',
+                            isOnWaitlist
+                              ? 'border-blue-500/50 bg-blue-50/30 dark:bg-blue-950/10'
                               : ''
                           )}
-                          onClick={() => !isEnrolled && !isFull && setSelectedSession(session)}
+                          onClick={() => {
+                            if (!isEnrolled && !isOnWaitlist) {
+                              setSelectedSession(session);
+                            }
+                          }}
                         >
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start">
@@ -447,25 +462,35 @@ export default function Booking() {
                                     {session.coach.first_name} {session.coach.last_name}
                                   </p>
                                 )}
+                                {/* Waitlist warning */}
+                                {isFull && !isEnrolled && !isOnWaitlist && (
+                                  <p className="text-xs text-amber-600 mt-2">
+                                    השיעור מלא. בחר כדי להצטרף לרשימת המתנה
+                                  </p>
+                                )}
                               </div>
                               <div className="text-left flex flex-col items-end gap-2">
                                 {isEnrolled ? (
-                                  <Badge variant="secondary">רשום</Badge>
+                                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                    <CheckCircle2 className="h-3 w-3 ml-1" />
+                                    רשום
+                                  </Badge>
+                                ) : isOnWaitlist ? (
+                                  <Badge className="bg-blue-100 text-blue-800">
+                                    <Clock className="h-3 w-3 ml-1" />
+                                    מקום {waitlistEntry?.position} בתור
+                                  </Badge>
                                 ) : isFull ? (
-                                  <>
-                                    <Badge variant="destructive">מלא</Badge>
-                                    {selectedSwimmer && (
-                                      <WaitlistButton
-                                        sessionId={session.id}
-                                        swimmerId={selectedSwimmer.id}
-                                        isOnWaitlist={isOnWaitlist}
-                                        waitlistPosition={waitlistEntry?.position}
-                                      />
-                                    )}
-                                  </>
+                                  <Badge variant="destructive">
+                                    מלא ({enrolledCount}/{maxParticipants})
+                                  </Badge>
+                                ) : spotsLeft <= 2 ? (
+                                  <Badge variant="destructive">
+                                    {spotsLeft} מקומות אחרונים!
+                                  </Badge>
                                 ) : (
-                                  <Badge variant={spotsLeft <= 2 ? 'destructive' : 'outline'}>
-                                    {spotsLeft} מקומות
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                                    {spotsLeft} מקומות פנויים
                                   </Badge>
                                 )}
                               </div>
@@ -487,10 +512,34 @@ export default function Booking() {
   const renderStep4 = () => {
     const sessionDate = new Date(selectedSession?.start_time);
     const location = locations.find((l: any) => l.id === selectedLocation);
+    const enrolledCount = selectedSession?.enrollments?.length || 0;
+    const maxParticipants = selectedSession?.max_participants || 8;
+    const isFull = enrolledCount >= maxParticipants;
 
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-center mb-6">אישור הרשמה</h2>
+        <h2 className="text-xl font-semibold text-center mb-6">
+          {isFull ? 'הצטרפות לרשימת המתנה' : 'אישור הרשמה'}
+        </h2>
+
+        {/* Waitlist Warning */}
+        {isFull && (
+          <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <Clock className="h-6 w-6 text-amber-600" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    השיעור מלא - תצטרף/י לרשימת ההמתנה
+                  </p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    נודיע לך ברגע שיתפנה מקום
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -542,32 +591,54 @@ export default function Booking() {
     );
   };
 
-  const renderSuccess = () => (
-    <div className="text-center py-12">
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle2 className="h-10 w-10 text-green-600" />
+  const renderSuccess = () => {
+    const isWaitlist = enrollmentResult?.action === 'waitlisted';
+    
+    return (
+      <div className="text-center py-12">
+        <div className={cn(
+          "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6",
+          isWaitlist ? "bg-blue-100" : "bg-green-100"
+        )}>
+          {isWaitlist ? (
+            <Clock className="h-10 w-10 text-blue-600" />
+          ) : (
+            <CheckCircle2 className="h-10 w-10 text-green-600" />
+          )}
+        </div>
+        <h2 className="text-2xl font-bold mb-2">
+          {isWaitlist ? 'נוספת לרשימת ההמתנה!' : 'ההרשמה בוצעה בהצלחה!'}
+        </h2>
+        <p className="text-muted-foreground mb-6">
+          {isWaitlist ? (
+            <>
+              {selectedSwimmer?.first_name} נמצא/ת במקום {enrollmentResult?.position} בתור.
+              <br />
+              נודיע לך ברגע שיתפנה מקום.
+            </>
+          ) : (
+            <>{selectedSwimmer?.first_name} נרשם/ה לשיעור</>
+          )}
+        </p>
+        <div className="flex justify-center gap-4">
+          <Button onClick={() => navigate('/family')}>
+            חזרה למשפחה שלי
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCurrentStep(1);
+              setSelectedSwimmer(null);
+              setSelectedSession(null);
+              setEnrollmentResult(null);
+            }}
+          >
+            הרשמה נוספת
+          </Button>
+        </div>
       </div>
-      <h2 className="text-2xl font-bold mb-2">ההרשמה בוצעה בהצלחה!</h2>
-      <p className="text-muted-foreground mb-6">
-        {selectedSwimmer?.first_name} נרשם/ה לשיעור
-      </p>
-      <div className="flex justify-center gap-4">
-        <Button onClick={() => navigate('/family')}>
-          חזרה למשפחה שלי
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setCurrentStep(1);
-            setSelectedSwimmer(null);
-            setSelectedSession(null);
-          }}
-        >
-          הרשמה נוספת
-        </Button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6" dir="rtl">
