@@ -34,6 +34,7 @@ interface Skill {
   description: string | null;
   level_id: string | null;
   sort_order: number;
+  required_for_graduation: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -223,6 +224,9 @@ export function SkillsEvaluation({ swimmer }: SkillsEvaluationProps) {
                 <div className="flex-1">
                   <p className={cn('font-medium', achieved && 'text-green-700 dark:text-green-300')}>
                     {skill.name}
+                    {skill.required_for_graduation && (
+                      <Badge className="mr-2 bg-amber-500 text-xs">חובה</Badge>
+                    )}
                   </p>
                   {skill.description && (
                     <p className="text-sm text-muted-foreground">{skill.description}</p>

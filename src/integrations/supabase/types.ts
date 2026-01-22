@@ -942,6 +942,7 @@ export type Database = {
           id: string
           level_id: string | null
           name: string
+          required_for_graduation: boolean | null
           sort_order: number | null
           updated_at: string
         }
@@ -951,6 +952,7 @@ export type Database = {
           id?: string
           level_id?: string | null
           name: string
+          required_for_graduation?: boolean | null
           sort_order?: number | null
           updated_at?: string
         }
@@ -960,6 +962,7 @@ export type Database = {
           id?: string
           level_id?: string | null
           name?: string
+          required_for_graduation?: boolean | null
           sort_order?: number | null
           updated_at?: string
         }
@@ -1036,6 +1039,67 @@ export type Database = {
             columns: ["swimmer_id"]
             isOneToOne: false
             referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      substitutions: {
+        Row: {
+          created_at: string
+          id: string
+          original_coach_id: string
+          reason: string | null
+          requested_at: string
+          responded_at: string | null
+          session_id: string
+          status: string
+          sub_coach_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          original_coach_id: string
+          reason?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          session_id: string
+          status?: string
+          sub_coach_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          original_coach_id?: string
+          reason?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          session_id?: string
+          status?: string
+          sub_coach_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "substitutions_original_coach_id_fkey"
+            columns: ["original_coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "substitutions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "substitutions_sub_coach_id_fkey"
+            columns: ["sub_coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1374,6 +1438,10 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_substitution: {
+        Args: { p_sub_coach_id: string; p_substitution_id: string }
+        Returns: Json
+      }
       calculate_proration: {
         Args: {
           p_base_price: number
@@ -1426,6 +1494,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      get_swimmer_report: { Args: { p_swimmer_id: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
