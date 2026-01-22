@@ -24,6 +24,8 @@ import Billing from "@/pages/Billing";
 import Reports from "@/pages/Reports";
 import ScheduleBuilder from "@/pages/ScheduleBuilder";
 import EnrollmentWizard from "@/pages/EnrollmentWizard";
+import SkillsManagement from "@/pages/SkillsManagement";
+import Substitutions from "@/pages/Substitutions";
 import NotFound from "@/pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -62,6 +64,7 @@ const App = () => (
               {/* Staff only (admin + coach) */}
               <Route path="/calendar" element={<StaffRoute><Calendar /></StaffRoute>} />
               <Route path="/coach" element={<StaffRoute><CoachDashboard /></StaffRoute>} />
+              <Route path="/substitutions" element={<StaffRoute><Substitutions /></StaffRoute>} />
               
               {/* Admin only */}
               <Route path="/locations" element={<AdminRoute><Locations /></AdminRoute>} />
@@ -71,6 +74,7 @@ const App = () => (
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
               <Route path="/schedule-builder" element={<AdminRoute><ScheduleBuilder /></AdminRoute>} />
               <Route path="/enrollment-wizard" element={<AdminRoute><EnrollmentWizard /></AdminRoute>} />
+              <Route path="/skills-management" element={<AdminRoute><SkillsManagement /></AdminRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

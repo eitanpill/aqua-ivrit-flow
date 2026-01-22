@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck, Award, RefreshCw } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -71,6 +71,7 @@ export function AppSidebar() {
   const getCoachMenuItems = (): MenuItem[] => {
     return [
       { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
+      { title: "שוק החלפות", url: "/substitutions", icon: RefreshCw },
     ];
   };
 
@@ -87,6 +88,7 @@ export function AppSidebar() {
     if (!isAdmin) return [];
     return [
       { title: "הגדרות פדגוגיות", url: "/pedagogy", icon: GraduationCap },
+      { title: "ניהול מיומנויות", url: "/skills-management", icon: Award },
       { title: "ניהול מוצרים", url: "/products", icon: Package },
     ];
   };
