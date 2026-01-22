@@ -41,6 +41,47 @@ export type Database = {
         }
         Relationships: []
       }
+      class_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          level_id: string | null
+          max_participants: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          level_id?: string | null
+          max_participants?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          level_id?: string | null
+          max_participants?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_types_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "class_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -178,6 +219,77 @@ export type Database = {
           },
         ]
       }
+      schedule_templates: {
+        Row: {
+          active: boolean
+          class_type_id: string
+          coach_id: string | null
+          created_at: string
+          day_of_week: number
+          id: string
+          name: string
+          resource_id: string | null
+          season_id: string | null
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          class_type_id: string
+          coach_id?: string | null
+          created_at?: string
+          day_of_week: number
+          id?: string
+          name: string
+          resource_id?: string | null
+          season_id?: string | null
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          class_type_id?: string
+          coach_id?: string | null
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          name?: string
+          resource_id?: string | null
+          season_id?: string | null
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_templates_class_type_id_fkey"
+            columns: ["class_type_id"]
+            isOneToOne: false
+            referencedRelation: "class_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_templates_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_templates_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_templates_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           active: boolean
@@ -207,6 +319,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sessions: {
+        Row: {
+          class_type_id: string
+          coach_id: string | null
+          created_at: string
+          end_time: string
+          id: string
+          max_participants: number | null
+          notes: string | null
+          resource_id: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["session_status"]
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_type_id: string
+          coach_id?: string | null
+          created_at?: string
+          end_time: string
+          id?: string
+          max_participants?: number | null
+          notes?: string | null
+          resource_id?: string | null
+          start_time: string
+          status?: Database["public"]["Enums"]["session_status"]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_type_id?: string
+          coach_id?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          max_participants?: number | null
+          notes?: string | null
+          resource_id?: string | null
+          start_time?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_class_type_id_fkey"
+            columns: ["class_type_id"]
+            isOneToOne: false
+            referencedRelation: "class_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       swimmers: {
         Row: {
@@ -274,6 +460,7 @@ export type Database = {
       gender_type: "male" | "female" | "other"
       product_type: "subscription" | "punch_card" | "single_session" | "trial"
       resource_type: "pool" | "lane"
+      session_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       skill_level: "beginner" | "intermediate" | "advanced" | "competitive"
     }
     CompositeTypes: {
@@ -406,6 +593,7 @@ export const Constants = {
       gender_type: ["male", "female", "other"],
       product_type: ["subscription", "punch_card", "single_session", "trial"],
       resource_type: ["pool", "lane"],
+      session_status: ["scheduled", "in_progress", "completed", "cancelled"],
       skill_level: ["beginner", "intermediate", "advanced", "competitive"],
     },
   },
