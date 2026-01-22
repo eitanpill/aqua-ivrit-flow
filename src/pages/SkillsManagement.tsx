@@ -9,10 +9,9 @@ import {
   GripVertical,
   Loader2,
   Save,
-  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Skill {
   id: string;
@@ -367,19 +367,13 @@ export default function SkillsManagement() {
 
       {/* Skills List */}
       {skills.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <Award className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">אין מיומנויות עדיין</h3>
-            <p className="text-muted-foreground mb-4">
-              התחל להוסיף מיומנויות למעקב התקדמות השחיינים
-            </p>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 ml-2" />
-              הוסף מיומנות ראשונה
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Award}
+          title="לא הוגדרו עדיין מיומנויות שחייה"
+          description="התחל להוסיף מיומנויות למעקב התקדמות השחיינים"
+          actionLabel="הוסף מיומנות ראשונה"
+          onAction={openCreateDialog}
+        />
       ) : (
         <div className="space-y-6">
           {/* General Skills */}
