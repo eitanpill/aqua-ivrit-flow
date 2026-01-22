@@ -82,6 +82,96 @@ export type Database = {
           },
         ]
       }
+      customer_wallets: {
+        Row: {
+          created_at: string
+          credits_balance: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_balance?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_balance?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrollments: {
+        Row: {
+          created_at: string
+          enrolled_at: string
+          enrolled_by: string | null
+          id: string
+          notes: string | null
+          session_id: string
+          status: Database["public"]["Enums"]["enrollment_status"]
+          swimmer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enrolled_at?: string
+          enrolled_by?: string | null
+          id?: string
+          notes?: string | null
+          session_id: string
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          swimmer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enrolled_at?: string
+          enrolled_by?: string | null
+          id?: string
+          notes?: string | null
+          session_id?: string
+          status?: Database["public"]["Enums"]["enrollment_status"]
+          swimmer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_enrolled_by_fkey"
+            columns: ["enrolled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_swimmer_id_fkey"
+            columns: ["swimmer_id"]
+            isOneToOne: false
+            referencedRelation: "swimmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -441,6 +531,47 @@ export type Database = {
           },
         ]
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          description: string | null
+          id: string
+          reference_id: string | null
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          reference_id?: string | null
+          type?: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "customer_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -457,11 +588,23 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "coach" | "customer"
+      enrollment_status:
+        | "pending"
+        | "confirmed"
+        | "cancelled"
+        | "attended"
+        | "no_show"
       gender_type: "male" | "female" | "other"
       product_type: "subscription" | "punch_card" | "single_session" | "trial"
       resource_type: "pool" | "lane"
       session_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       skill_level: "beginner" | "intermediate" | "advanced" | "competitive"
+      wallet_transaction_type:
+        | "purchase"
+        | "usage"
+        | "refund"
+        | "adjustment"
+        | "expiry"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -590,11 +733,25 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "coach", "customer"],
+      enrollment_status: [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "attended",
+        "no_show",
+      ],
       gender_type: ["male", "female", "other"],
       product_type: ["subscription", "punch_card", "single_session", "trial"],
       resource_type: ["pool", "lane"],
       session_status: ["scheduled", "in_progress", "completed", "cancelled"],
       skill_level: ["beginner", "intermediate", "advanced", "competitive"],
+      wallet_transaction_type: [
+        "purchase",
+        "usage",
+        "refund",
+        "adjustment",
+        "expiry",
+      ],
     },
   },
 } as const
