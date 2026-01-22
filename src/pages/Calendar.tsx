@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import {
@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -18,20 +19,28 @@ import { HEBREW_MONTHS } from '@/lib/session-generator';
 
 export default function Calendar() {
   const queryClient = useQueryClient();
+  const { user, isCoach, isAdmin } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedCoach, setSelectedCoach] = useState('all');
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Force coach filter for non-admin coaches
+  useEffect(() => {
+    if (isCoach && !isAdmin && user?.id) {
+      setSelectedCoach(user.id);
+    }
+  }, [isCoach, isAdmin, user?.id]);
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
 
-  // Fetch sessions for the current week
+  // Fetch sessions for the current week - filtered by coach_id if user is coach
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
-    queryKey: ['sessions', format(weekStart, 'yyyy-MM-dd'), format(weekEnd, 'yyyy-MM-dd')],
+    queryKey: ['sessions', format(weekStart, 'yyyy-MM-dd'), format(weekEnd, 'yyyy-MM-dd'), isCoach && !isAdmin ? user?.id : null],
     queryFn: async () => {
-      const { data, error } = await (supabase
+      let query = supabase
         .from('sessions' as any)
         .select(`
           *,
@@ -41,11 +50,19 @@ export default function Calendar() {
         `)
         .gte('start_time', weekStart.toISOString())
         .lte('start_time', weekEnd.toISOString())
-        .order('start_time') as any);
+        .order('start_time');
+
+      // Force filter for coaches (non-admins) - they only see their own sessions
+      if (isCoach && !isAdmin && user?.id) {
+        query = query.eq('coach_id', user.id);
+      }
+
+      const { data, error } = await (query as any);
 
       if (error) throw error;
       return data || [];
     },
+    enabled: !!user,
   });
 
   // Fetch locations for filter
@@ -223,7 +240,7 @@ export default function Calendar() {
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters - Hide coach filter for non-admin coaches */}
       <CalendarFilters
         locations={locations}
         coaches={coaches}
@@ -231,6 +248,7 @@ export default function Calendar() {
         selectedCoach={selectedCoach}
         onLocationChange={setSelectedLocation}
         onCoachChange={setSelectedCoach}
+        hideCoachFilter={isCoach && !isAdmin}
       />
 
       {/* Weekly Calendar */}

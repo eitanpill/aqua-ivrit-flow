@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, isToday, isTomorrow, startOfMonth, endOfMonth } from 'date-fns';
 import {
   Calendar,
   Clock,
@@ -8,15 +8,19 @@ import {
   Users,
   ChevronLeft,
   Waves,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HEBREW_DAYS } from '@/lib/session-generator';
 import { SessionMode } from '@/components/coach/SessionMode';
+
+const DEFAULT_HOURLY_RATE = 150; // Default rate if not set in coach_rates
 
 export default function CoachDashboard() {
   const { user } = useAuth();
@@ -85,6 +89,62 @@ export default function CoachDashboard() {
     enabled: !!user?.id,
   });
 
+  // Fetch monthly completed sessions for salary calculation
+  const { data: monthlyStats } = useQuery({
+    queryKey: ['coach-monthly-stats', user?.id],
+    queryFn: async () => {
+      const monthStart = startOfMonth(new Date());
+      const monthEnd = endOfMonth(new Date());
+
+      // Get completed sessions this month
+      const { data: sessions, error: sessionsError } = await (supabase
+        .from('sessions' as any)
+        .select(`
+          id,
+          start_time,
+          end_time,
+          status,
+          class_type:class_types(duration_min)
+        `)
+        .eq('coach_id', user?.id)
+        .eq('status', 'completed')
+        .gte('start_time', monthStart.toISOString())
+        .lte('start_time', monthEnd.toISOString()) as any);
+
+      if (sessionsError) throw sessionsError;
+
+      // Get coach's rate (if set)
+      const { data: rateData } = await (supabase
+        .from('coach_rates' as any)
+        .select('rate_per_hour')
+        .eq('coach_id', user?.id)
+        .lte('effective_from', new Date().toISOString().split('T')[0])
+        .or(`effective_to.is.null,effective_to.gte.${new Date().toISOString().split('T')[0]}`)
+        .order('effective_from', { ascending: false })
+        .limit(1) as any);
+
+      const hourlyRate = rateData?.[0]?.rate_per_hour || DEFAULT_HOURLY_RATE;
+
+      // Calculate total hours
+      let totalMinutes = 0;
+      sessions?.forEach((session: any) => {
+        const duration = session.class_type?.duration_min || 45;
+        totalMinutes += duration;
+      });
+
+      const totalHours = totalMinutes / 60;
+      const estimatedSalary = Math.round(totalHours * hourlyRate);
+
+      return {
+        completedSessions: sessions?.length || 0,
+        totalHours: totalHours.toFixed(1),
+        hourlyRate,
+        estimatedSalary,
+      };
+    },
+    enabled: !!user?.id,
+  });
+
   const getSessionStatus = (session: any) => {
     const now = new Date();
     const start = new Date(session.start_time);
@@ -132,6 +192,44 @@ export default function CoachDashboard() {
       </div>
 
       <div className="p-4 space-y-6">
+        {/* Salary Preview Widget */}
+        <section>
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                דוח שכר החודש
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-background/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">שיעורים שהושלמו</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {monthlyStats?.completedSessions || 0}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-background/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">סה"כ שעות</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {monthlyStats?.totalHours || '0'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 p-4 bg-primary/10 rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">שכר משוער החודש</p>
+                <p className="text-3xl font-bold text-primary flex items-center justify-center gap-1">
+                  ₪{monthlyStats?.estimatedSalary?.toLocaleString() || 0}
+                  <TrendingUp className="h-5 w-5" />
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  (₪{monthlyStats?.hourlyRate || DEFAULT_HOURLY_RATE} לשעה)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Today's Sessions */}
         <section>
           <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
