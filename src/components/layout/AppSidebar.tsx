@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -17,10 +17,18 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-const menuItems = [
+const mainMenuItems = [
   { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
   { title: "ניהול בריכות", url: "/locations", icon: MapPin },
   { title: "משתמשים", url: "/users", icon: Users },
+];
+
+const academicMenuItems = [
+  { title: "הגדרות פדגוגיות", url: "/pedagogy", icon: GraduationCap },
+  { title: "ניהול מוצרים", url: "/products", icon: Package },
+];
+
+const settingsMenuItems = [
   { title: "הגדרות", url: "/settings", icon: Settings },
 ];
 
@@ -34,6 +42,32 @@ export function AppSidebar() {
     await supabase.auth.signOut();
     navigate("/auth");
   };
+
+  const renderMenuItems = (items: typeof mainMenuItems) => (
+    <SidebarMenu>
+      {items.map((item) => {
+        const isActive = location.pathname === item.url;
+        return (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton asChild>
+              <NavLink
+                to={item.url}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {!collapsed && <span>{item.title}</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
 
   return (
     <Sidebar side="right" collapsible="icon" className="border-s border-sidebar-border">
@@ -55,29 +89,21 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => {
-                const isActive = location.pathname === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                        )}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            {renderMenuItems(mainMenuItems)}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground">אקדמיה</SidebarGroupLabel>
+          <SidebarGroupContent>
+            {renderMenuItems(academicMenuItems)}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground">מערכת</SidebarGroupLabel>
+          <SidebarGroupContent>
+            {renderMenuItems(settingsMenuItems)}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

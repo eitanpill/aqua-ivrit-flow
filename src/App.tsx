@@ -10,6 +10,8 @@ import Dashboard from "@/pages/Dashboard";
 import Locations from "@/pages/Locations";
 import UsersPage from "@/pages/UsersPage";
 import Settings from "@/pages/Settings";
+import Pedagogy from "@/pages/Pedagogy";
+import Products from "@/pages/Products";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/locations" element={<Locations />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/pedagogy" element={<Pedagogy />} />
+            <Route path="/products" element={<Products />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
