@@ -59,17 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserRole = async (userId: string) => {
     try {
+      // Use direct query to user_roles table (RLS allows users to see their own role)
       const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
+        .from('user_roles' as any)
+        .select('role')
+        .eq('user_id', userId)
         .single();
 
       if (error) {
         console.error("Error fetching user role:", error);
-        setRole("customer"); // Default fallback
+        // Fallback to profiles table if user_roles doesn't have entry yet
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .single();
+        
+        if (profileError) {
+          setRole("customer");
+        } else {
+          const profileRole = (profileData as any)?.role as AppRole;
+          setRole(profileRole ?? "customer");
+        }
       } else {
-        setRole(data?.role as AppRole ?? "customer");
+        const roleValue = (data as any)?.role as AppRole;
+        setRole(roleValue ?? "customer");
       }
     } catch (error) {
       console.error("Error fetching user role:", error);
