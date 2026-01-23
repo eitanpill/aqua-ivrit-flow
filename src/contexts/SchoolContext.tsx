@@ -25,16 +25,32 @@ interface SchoolContextType {
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
 
-const SUPER_ADMIN_EMAIL = 'eitanpill@gmail.com';
-
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [currentSchool, setCurrentSchool] = useState<School | null>(null);
   const [allSchools, setAllSchools] = useState<School[]>([]);
   const [activeSchoolId, setActiveSchoolIdState] = useState<string | null>(null);
   const [isLoadingSchool, setIsLoadingSchool] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  // Check if user is a platform admin via database function (not hardcoded email)
+  const checkSuperAdmin = async () => {
+    if (!user) {
+      setIsSuperAdmin(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase.rpc as any)('is_super_admin');
+      if (!error && data === true) {
+        setIsSuperAdmin(true);
+      } else {
+        setIsSuperAdmin(false);
+      }
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  };
 
   const fetchUserSchool = async () => {
     if (!user) {
@@ -107,13 +123,22 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isSuperAdmin]);
 
+  // Check super admin status when user changes
+  useEffect(() => {
+    checkSuperAdmin();
+  }, [user?.id]);
+
   // Fetch schools when user changes
   useEffect(() => {
     fetchUserSchool();
+  }, [user?.id]);
+
+  // Fetch all schools when super admin status is confirmed
+  useEffect(() => {
     if (isSuperAdmin) {
       fetchAllSchools();
     }
-  }, [user?.id, isSuperAdmin]);
+  }, [isSuperAdmin]);
 
   return (
     <SchoolContext.Provider
