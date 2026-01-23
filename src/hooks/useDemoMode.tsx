@@ -17,13 +17,18 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   
   const isDemoMode = user?.email === DEMO_EMAIL;
 
+  /**
+   * Block demo actions - provides UI feedback.
+   * Note: Even if UI checks are bypassed, the database has 
+   * RLS policies that block all write operations for demo users.
+   */
   const blockDemoAction = (actionName?: string): boolean => {
     if (isDemoMode) {
       toast({
         title: "פעולה חסומה",
         description: actionName 
           ? `פעולת "${actionName}" חסומה במצב הדגמה`
-          : "פעולה זו חסומה במצב הדגמה",
+          : "פעולה זו חסומה במצב הדגמה. אפשר רק לצפות בנתונים.",
         variant: "destructive",
       });
       return true; // Action was blocked

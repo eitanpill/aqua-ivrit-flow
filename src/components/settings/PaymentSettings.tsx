@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CreditCard, Eye, EyeOff, Trash2, Plus, Shield, AlertCircle } from "lucide-react";
+import { Loader2, CreditCard, Eye, EyeOff, Trash2, Plus, Shield, AlertCircle, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useDemoMode } from "@/hooks/useDemoMode";
 import {
   getPaymentConfigs,
   upsertPaymentConfig,
@@ -28,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const PROVIDERS: { value: PaymentProvider; label: string }[] = [
   { value: 'stripe', label: 'Stripe' },
@@ -40,6 +42,7 @@ export function PaymentSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentSchool, isSuperAdmin } = useSchool();
+  const { isDemoMode, blockDemoAction } = useDemoMode();
   
   const [showForm, setShowForm] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('stripe');
@@ -151,6 +154,16 @@ export function PaymentSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Demo Mode Warning */}
+        {isDemoMode && (
+          <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              מצב הדגמה - לא ניתן לבצע שינויים בהגדרות התשלומים. פעולות כתיבה חסומות ברמת בסיס הנתונים.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Security Notice */}
         <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border border-border/50">
           <Shield className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
@@ -212,7 +225,12 @@ export function PaymentSettings() {
                   </div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive hover:text-destructive"
+                        disabled={isDemoMode}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -336,7 +354,15 @@ export function PaymentSettings() {
             </div>
           </form>
         ) : (
-          <Button onClick={() => setShowForm(true)} variant="outline" className="gap-2">
+          <Button 
+            onClick={() => {
+              if (blockDemoAction('הוספת ספק תשלומים')) return;
+              setShowForm(true);
+            }} 
+            variant="outline" 
+            className="gap-2"
+            disabled={isDemoMode}
+          >
             <Plus className="h-4 w-4" />
             הוסף ספק תשלומים
           </Button>

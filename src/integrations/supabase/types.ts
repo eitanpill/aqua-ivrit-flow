@@ -739,6 +739,30 @@ export type Database = {
           },
         ]
       }
+      platform_admins: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
@@ -1823,6 +1847,7 @@ export type Database = {
         Args: { p_sub_coach_id: string; p_substitution_id: string }
         Returns: Json
       }
+      block_demo_writes: { Args: never; Returns: boolean }
       calculate_coach_payroll: {
         Args: { p_coach_id: string; p_month: string }
         Returns: Json
@@ -1906,6 +1931,7 @@ export type Database = {
           total_pending: number
         }[]
       }
+      get_masked_secret: { Args: { p_secret: string }; Returns: string }
       get_monthly_payroll_summary: { Args: { p_month: string }; Returns: Json }
       get_next_waitlist_position: {
         Args: { p_session_id: string }
@@ -1982,6 +2008,16 @@ export type Database = {
       }
       update_session_capacity: {
         Args: { p_max_participants: number; p_session_id: string }
+        Returns: Json
+      }
+      upsert_payment_config: {
+        Args: {
+          p_api_key: string
+          p_api_secret?: string
+          p_is_active?: boolean
+          p_provider_name: Database["public"]["Enums"]["payment_provider"]
+          p_school_id: string
+        }
         Returns: Json
       }
       user_has_school_access: {
