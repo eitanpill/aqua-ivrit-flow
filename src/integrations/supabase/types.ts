@@ -637,6 +637,47 @@ export type Database = {
           },
         ]
       }
+      payment_configs: {
+        Row: {
+          api_key: string
+          api_secret: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          provider_name: Database["public"]["Enums"]["payment_provider"]
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          api_secret?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          provider_name: Database["public"]["Enums"]["payment_provider"]
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          api_secret?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          provider_name?: Database["public"]["Enums"]["payment_provider"]
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_configs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -1739,6 +1780,10 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: Json
       }
+      get_active_payment_config: {
+        Args: { p_school_id: string }
+        Returns: Json
+      }
       get_family_debts: {
         Args: never
         Returns: {
@@ -1753,6 +1798,19 @@ export type Database = {
       get_next_waitlist_position: {
         Args: { p_session_id: string }
         Returns: number
+      }
+      get_payment_configs: {
+        Args: { p_school_id: string }
+        Returns: {
+          api_key_masked: string
+          created_at: string
+          has_secret: boolean
+          id: string
+          is_active: boolean
+          provider_name: Database["public"]["Enums"]["payment_provider"]
+          school_id: string
+          updated_at: string
+        }[]
       }
       get_school_by_slug: { Args: { p_slug: string }; Returns: Json }
       get_session_availability: {
@@ -1837,6 +1895,7 @@ export type Database = {
         | "no_show"
       enrollment_type: "permanent" | "single" | "makeup"
       gender_type: "male" | "female" | "other"
+      payment_provider: "stripe" | "tranzila" | "cardcom" | "generic"
       product_type: "subscription" | "punch_card" | "single_session" | "trial"
       resource_type: "pool" | "lane"
       session_status: "scheduled" | "in_progress" | "completed" | "cancelled"
@@ -1987,6 +2046,7 @@ export const Constants = {
       ],
       enrollment_type: ["permanent", "single", "makeup"],
       gender_type: ["male", "female", "other"],
+      payment_provider: ["stripe", "tranzila", "cardcom", "generic"],
       product_type: ["subscription", "punch_card", "single_session", "trial"],
       resource_type: ["pool", "lane"],
       session_status: ["scheduled", "in_progress", "completed", "cancelled"],
