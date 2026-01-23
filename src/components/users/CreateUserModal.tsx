@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, UserPlus, Shield, UserCog, User } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
+import { isValidIsraeliPhone, israeliPhoneErrorMessage } from "@/lib/phoneUtils";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -19,15 +20,36 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [role, setRole] = useState<AppRole>("customer");
   const queryClient = useQueryClient();
+
+  const validatePhone = (value: string) => {
+    if (!value) {
+      setPhoneError(null);
+      return true;
+    }
+    const digits = value.replace(/\D/g, "");
+    if (digits && !isValidIsraeliPhone(digits)) {
+      setPhoneError(israeliPhoneErrorMessage);
+      return false;
+    }
+    setPhoneError(null);
+    return true;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhone(value);
+    validatePhone(value);
+  };
 
   const createUserMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc("create_user_profile" as any, {
         p_first_name: firstName,
         p_last_name: lastName,
-        p_phone: phone || null,
+        p_phone: phone ? phone.replace(/\D/g, "") : null,
         p_role: role,
       });
 
@@ -55,6 +77,7 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     setFirstName("");
     setLastName("");
     setPhone("");
+    setPhoneError(null);
     setRole("customer");
   };
 
@@ -62,6 +85,10 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("יש להזין שם פרטי ושם משפחה");
+      return;
+    }
+    if (phone && !validatePhone(phone)) {
+      toast.error(israeliPhoneErrorMessage);
       return;
     }
     createUserMutation.mutate();
@@ -106,12 +133,15 @@ export function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="050-1234567"
+                placeholder="0521234567"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={handlePhoneChange}
                 dir="ltr"
-                className="text-right"
+                className={`text-right ${phoneError ? "border-destructive" : ""}`}
               />
+              {phoneError && (
+                <p className="text-sm text-destructive">{phoneError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">תפקיד</Label>

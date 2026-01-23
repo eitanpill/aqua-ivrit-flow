@@ -8,14 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Package, Edit, Trash2, CreditCard, Calendar, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { AdaptiveTable, type AdaptiveColumn, type AdaptiveAction } from "@/components/ui/adaptive-table";
 
 type ProductType = "subscription" | "punch_card" | "single_session" | "trial";
 
@@ -191,6 +184,80 @@ export default function Products() {
       currency: "ILS",
     }).format(price);
   };
+
+  // Define columns for AdaptiveTable
+  const columns: AdaptiveColumn<Product>[] = [
+    {
+      key: "name",
+      header: "שם המוצר",
+      primary: true,
+      render: (product) => (
+        <div>
+          <p className="font-medium">{product.name}</p>
+          {product.description && (
+            <p className="text-xs text-muted-foreground">{product.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: "סוג",
+      render: (product) => (
+        <div className="flex items-center gap-2">
+          {productTypeIcons[product.type]}
+          <span>{productTypeLabels[product.type]}</span>
+        </div>
+      ),
+    },
+    {
+      key: "price",
+      header: "מחיר",
+      render: (product) => (
+        <span className="font-medium text-primary">{formatPrice(product.price)}</span>
+      ),
+    },
+    {
+      key: "credits",
+      header: "ניקובים",
+      hideOnMobile: true,
+      render: (product) => <span>{product.credits_amount || "-"}</span>,
+    },
+    {
+      key: "duration",
+      header: "תוקף",
+      hideOnMobile: true,
+      render: (product) => (
+        <span>{product.duration_days ? `${product.duration_days} ימים` : "-"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "סטטוס",
+      render: (product) => (
+        <Badge variant={product.active ? "default" : "secondary"}>
+          {product.active ? "פעיל" : "לא פעיל"}
+        </Badge>
+      ),
+    },
+  ];
+
+  // Define actions for AdaptiveTable
+  const actions: AdaptiveAction<Product>[] = [
+    {
+      label: "ערוך",
+      icon: Edit,
+      onClick: () => {
+        // Edit functionality placeholder
+      },
+    },
+    {
+      label: "מחק",
+      icon: Trash2,
+      variant: "destructive",
+      onClick: (product) => deleteMutation.mutate(product.id),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -382,76 +449,14 @@ export default function Products() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">טוען...</div>
-          ) : products && products.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">שם המוצר</TableHead>
-                  <TableHead className="text-right">סוג</TableHead>
-                  <TableHead className="text-right">מחיר</TableHead>
-                  <TableHead className="text-right">ניקובים</TableHead>
-                  <TableHead className="text-right">תוקף</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        {product.description && (
-                          <p className="text-xs text-muted-foreground">{product.description}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {productTypeIcons[product.type]}
-                        <span>{productTypeLabels[product.type]}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium text-primary">
-                      {formatPrice(product.price)}
-                    </TableCell>
-                    <TableCell>{product.credits_amount || "-"}</TableCell>
-                    <TableCell>
-                      {product.duration_days ? `${product.duration_days} ימים` : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={product.active}
-                        onCheckedChange={(checked) =>
-                          toggleActiveMutation.mutate({ id: product.id, active: checked })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(product.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           ) : (
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">אין מוצרים במערכת עדיין</p>
-              <p className="text-sm text-muted-foreground">לחץ על "הוסף מוצר" כדי להתחיל</p>
-            </div>
+            <AdaptiveTable
+              data={products || []}
+              columns={columns}
+              actions={actions}
+              keyExtractor={(product) => product.id}
+              emptyMessage="אין מוצרים במערכת עדיין. לחץ על 'הוסף מוצר' כדי להתחיל."
+            />
           )}
         </CardContent>
       </Card>

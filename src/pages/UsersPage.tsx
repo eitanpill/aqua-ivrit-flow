@@ -4,9 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { Users, Search, Loader2, UserCog, Shield, User, UserPlus, Pencil, Trash2, Calendar, Eye } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { WhatsAppButton } from "@/components/ui/whatsapp-button";
@@ -16,13 +14,8 @@ import { EditUserModal } from "@/components/users/EditUserModal";
 import { DeleteUserDialog } from "@/components/users/DeleteUserDialog";
 import { UserEnrollmentSheet } from "@/components/users/UserEnrollmentSheet";
 import { CoachDetailsSheet } from "@/components/users/CoachDetailsSheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { AdaptiveTable, type AdaptiveColumn, type AdaptiveAction } from "@/components/ui/adaptive-table";
+import { formatPhone } from "@/lib/phoneUtils";
 
 interface UserProfile {
   id: string;
@@ -114,6 +107,103 @@ export default function UsersPage() {
     );
   }
 
+  // Define columns for AdaptiveTable
+  const columns: AdaptiveColumn<UserProfile>[] = [
+    {
+      key: "name",
+      header: "שם",
+      primary: true,
+      render: (user) => {
+        const userName = user.first_name || user.last_name
+          ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+          : "ללא שם";
+        return <span className="font-medium">{userName}</span>;
+      },
+    },
+    {
+      key: "phone",
+      header: "טלפון",
+      render: (user) => {
+        const userName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || "ללא שם";
+        return (
+          <div className="flex items-center justify-end gap-2" dir="ltr">
+            <span>{formatPhone(user.phone)}</span>
+            {user.phone && (
+              <WhatsAppButton phone={user.phone} name={userName} />
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "role",
+      header: "תפקיד",
+      render: (user) => {
+        const RoleIcon = roleIcons[user.role];
+        return (
+          <Badge variant={roleBadgeVariant[user.role]} className="gap-1">
+            <RoleIcon className="h-3 w-3" />
+            {roleLabels[user.role]}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "created_at",
+      header: "תאריך הצטרפות",
+      hideOnMobile: true,
+      render: (user) => (
+        <span>{new Date(user.created_at).toLocaleDateString("he-IL")}</span>
+      ),
+    },
+  ];
+
+  // Define actions for AdaptiveTable
+  const getActions = (): AdaptiveAction<UserProfile>[] => [
+    {
+      label: "ערוך פרטים",
+      icon: Pencil,
+      onClick: (user) => {
+        if (user.id !== currentUser?.id) {
+          setEditUser(user);
+        }
+      },
+    },
+    {
+      label: "פרטי מאמן",
+      icon: Eye,
+      onClick: (user) => {
+        if (user.role === "coach") {
+          const userName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || "ללא שם";
+          setCoachDetails({ id: user.id, name: userName });
+        }
+      },
+    },
+    {
+      label: "ניהול הרשמות",
+      icon: Calendar,
+      onClick: (user) => {
+        if (user.id !== currentUser?.id) {
+          openEnrollmentSheet(user);
+        }
+      },
+    },
+    {
+      label: "מחק משתמש",
+      icon: Trash2,
+      variant: "destructive",
+      onClick: (user) => {
+        if (user.id !== currentUser?.id) {
+          setDeleteUser(user);
+        }
+      },
+    },
+  ];
+
+  // Filter out current user from actions
+  const filteredData = filteredUsers?.filter(user => user.id !== currentUser?.id) || [];
+  const currentUserData = filteredUsers?.find(user => user.id === currentUser?.id);
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -159,95 +249,30 @@ export default function UsersPage() {
               <div className="flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : !filteredUsers?.length ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <p className="text-muted-foreground">לא נמצאו משתמשים</p>
-              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">שם</TableHead>
-                    <TableHead className="text-right">טלפון</TableHead>
-                    <TableHead className="text-right">תפקיד</TableHead>
-                    <TableHead className="text-right">תאריך הצטרפות</TableHead>
-                    <TableHead className="text-right">פעולות</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => {
-                    const RoleIcon = roleIcons[user.role];
-                    const isCurrentUser = user.id === currentUser?.id;
-                    const userName = user.first_name || user.last_name
-                      ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                      : "ללא שם";
-
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{userName}</TableCell>
-                        <TableCell dir="ltr" className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span>{user.phone || "-"}</span>
-                            {user.phone && (
-                              <WhatsAppButton phone={user.phone} name={userName} />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={roleBadgeVariant[user.role]} className="gap-1">
-                            <RoleIcon className="h-3 w-3" />
-                            {roleLabels[user.role]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(user.created_at).toLocaleDateString("he-IL")}
-                        </TableCell>
-                        <TableCell>
-                          {isCurrentUser ? (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              אתה
-                            </Badge>
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setEditUser(user)}>
-                                  <Pencil className="h-4 w-4 ml-2" />
-                                  ערוך פרטים
-                                </DropdownMenuItem>
-                                {user.role === "coach" && (
-                                  <DropdownMenuItem 
-                                    onClick={() => setCoachDetails({ id: user.id, name: userName })}
-                                  >
-                                    <Eye className="h-4 w-4 ml-2" />
-                                    פרטי מאמן
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem onClick={() => openEnrollmentSheet(user)}>
-                                  <Calendar className="h-4 w-4 ml-2" />
-                                  ניהול הרשמות
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => setDeleteUser(user)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 ml-2" />
-                                  מחק משתמש
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <>
+                {/* Show current user separately if they exist in filtered results */}
+                {currentUserData && (
+                  <div className="mb-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">
+                        {currentUserData.first_name || ""} {currentUserData.last_name || ""}
+                      </span>
+                      <Badge variant="outline" className="text-muted-foreground">אתה</Badge>
+                    </div>
+                    <Badge variant={roleBadgeVariant[currentUserData.role]} className="gap-1">
+                      {roleLabels[currentUserData.role]}
+                    </Badge>
+                  </div>
+                )}
+                <AdaptiveTable
+                  data={filteredData}
+                  columns={columns}
+                  actions={getActions()}
+                  keyExtractor={(user) => user.id}
+                  emptyMessage="לא נמצאו משתמשים"
+                />
+              </>
             )}
           </CardContent>
         </Card>
