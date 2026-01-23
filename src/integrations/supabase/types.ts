@@ -1726,6 +1726,15 @@ export type Database = {
         }
         Returns: Json
       }
+      create_school_for_owner: {
+        Args: {
+          p_email?: string
+          p_phone?: string
+          p_school_name: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       generate_sessions_from_series: {
         Args: { p_series_id: string }
         Returns: Json
@@ -1745,6 +1754,7 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      get_school_by_slug: { Args: { p_slug: string }; Returns: Json }
       get_session_availability: {
         Args: { p_session_id: string }
         Returns: Json
@@ -1768,6 +1778,14 @@ export type Database = {
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      join_school_by_slug: {
+        Args: {
+          p_role?: Database["public"]["Enums"]["app_role"]
+          p_school_slug: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       migrate_to_multi_tenant: { Args: never; Returns: Json }
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
       set_user_role: {
