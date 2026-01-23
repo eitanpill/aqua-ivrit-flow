@@ -1,7 +1,10 @@
 /**
  * Notification Service - שירות התראות
  * Hebrew notification templates for SMS/WhatsApp/Email
+ * Integrated with AI-powered webhook dispatcher
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 export interface NotificationParams {
   name: string;
@@ -14,6 +17,7 @@ export interface NotificationParams {
   tokenCount?: number;
   position?: number;
   reason?: string;
+  phone?: string;
 }
 
 export type NotificationType =
@@ -27,7 +31,20 @@ export type NotificationType =
   | 'payment_reminder'
   | 'welcome';
 
-// Hebrew notification templates
+// Map notification types to webhook event types
+const NOTIFICATION_TO_EVENT_TYPE: Record<NotificationType, string> = {
+  session_reminder: 'session_reminder',
+  session_cancelled: 'class_cancelled',
+  waitlist_spot_available: 'waitlist_spot_available',
+  enrollment_confirmed: 'new_registration',
+  cancellation_confirmed: 'class_cancelled',
+  makeup_token_issued: 'makeup_class_available',
+  payment_received: 'payment_due',
+  payment_reminder: 'payment_due',
+  welcome: 'new_registration',
+};
+
+// Hebrew notification templates (fallback if AI is not available)
 const NOTIFICATION_TEMPLATES: Record<NotificationType, (params: NotificationParams) => string> = {
   session_reminder: (params) =>
     `שלום ${params.name}! 🏊‍♂️\n` +
@@ -138,4 +155,100 @@ export function formatPhoneNumber(phone: string): string {
   }
   
   return '+' + digits;
+}
+
+/**
+ * Dispatch notification via AI-powered webhook
+ * This sends the notification to the school's configured webhook URL
+ * with an AI-generated message
+ */
+export async function dispatchNotification(
+  type: NotificationType,
+  params: NotificationParams,
+  schoolId: string
+): Promise<{ success: boolean; error?: string; generatedMessage?: string }> {
+  try {
+    const eventType = NOTIFICATION_TO_EVENT_TYPE[type] || type;
+    
+    const { data, error } = await supabase.functions.invoke("dispatch-notification", {
+      body: {
+        event_type: eventType,
+        data: {
+          parent_name: params.name,
+          parent_phone: params.phone || "",
+          child_name: params.swimmerName,
+          class_time: params.sessionTime 
+            ? `${params.sessionDate || ""} ${params.sessionTime}` 
+            : params.sessionDate,
+          coach_name: params.coachName,
+          class_type: params.className,
+          location: params.locationName,
+          reason: params.reason,
+          token_count: params.tokenCount,
+          position: params.position,
+        },
+        school_id: schoolId,
+        is_test: false,
+      },
+    });
+
+    if (error) {
+      console.error("[notificationService] Webhook dispatch error:", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.success) {
+      console.warn("[notificationService] Webhook dispatch failed:", data?.error);
+      return { success: false, error: data?.error };
+    }
+
+    console.log("[notificationService] Notification dispatched successfully");
+    return { 
+      success: true, 
+      generatedMessage: data.generated_message 
+    };
+  } catch (err) {
+    console.error("[notificationService] Error dispatching notification:", err);
+    return { 
+      success: false, 
+      error: err instanceof Error ? err.message : "Unknown error" 
+    };
+  }
+}
+
+/**
+ * Send notification with webhook fallback to local template
+ * Tries webhook first, falls back to local template if webhook fails or not configured
+ */
+export async function sendNotification(
+  type: NotificationType,
+  params: NotificationParams,
+  schoolId?: string,
+  options: { useWebhook?: boolean } = { useWebhook: true }
+): Promise<{ success: boolean; message: string; source: 'webhook' | 'template' }> {
+  // If webhook is enabled and we have a school ID, try webhook first
+  if (options.useWebhook && schoolId) {
+    const webhookResult = await dispatchNotification(type, params, schoolId);
+    
+    if (webhookResult.success) {
+      return {
+        success: true,
+        message: webhookResult.generatedMessage || "",
+        source: 'webhook',
+      };
+    }
+    
+    // Log webhook failure but continue with template fallback
+    console.warn("[notificationService] Webhook failed, using template fallback:", webhookResult.error);
+  }
+  
+  // Fallback to local template
+  const message = generateNotification(type, params);
+  logNotification(type, params);
+  
+  return {
+    success: true,
+    message,
+    source: 'template',
+  };
 }
