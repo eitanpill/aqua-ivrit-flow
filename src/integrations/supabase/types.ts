@@ -1767,6 +1767,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       migrate_to_multi_tenant: { Args: never; Returns: Json }
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
       set_user_role: {
@@ -1792,6 +1793,10 @@ export type Database = {
       update_session_capacity: {
         Args: { p_max_participants: number; p_session_id: string }
         Returns: Json
+      }
+      user_has_school_access: {
+        Args: { p_school_id: string }
+        Returns: boolean
       }
       validate_enrollment: {
         Args: {
