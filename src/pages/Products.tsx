@@ -125,12 +125,32 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Check for active subscriptions before deleting
+      const { data: activeSubscriptions, error: checkError } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("product_id", id)
+        .eq("status", "active");
+      
+      if (checkError) throw checkError;
+      
+      if (activeSubscriptions && activeSubscriptions.length > 0) {
+        throw new Error(`לא ניתן למחוק מוצר עם ${activeSubscriptions.length} מנויים פעילים. יש לבטל את המנויים תחילה.`);
+      }
+      
       const { error } = await supabase.from("products" as any).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: "המוצר נמחק בהצלחה" });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "שגיאה במחיקת מוצר", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     },
   });
 

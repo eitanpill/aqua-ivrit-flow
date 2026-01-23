@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { X, Clock, MapPin, User, Users, FileText, AlertTriangle, Settings } from 'lucide-react';
+import { X, Clock, MapPin, User, Users, FileText, AlertTriangle, Settings, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -59,9 +60,30 @@ export function SessionModal({
   onUpdateNotes,
 }: SessionModalProps) {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [notes, setNotes] = useState(session?.notes || '');
   const [isEditing, setIsEditing] = useState(false);
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
+
+  // Restore session mutation
+  const restoreSession = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ status: 'scheduled', is_cancelled: false })
+        .eq('id', session!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session-modal-details', session?.id] });
+      toast.success('השיעור שוחזר בהצלחה');
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast.error('שגיאה בשחזור השיעור');
+    },
+  });
 
   // Fetch session enrollment details
   const { data: sessionDetails } = useQuery({
@@ -235,7 +257,7 @@ export function SessionModal({
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 sm:gap-2">
+          <DialogFooter className="flex gap-2 sm:gap-2 flex-wrap">
             {/* Admin Command Center Button */}
             {isAdmin && (
               <Button
@@ -248,6 +270,19 @@ export function SessionModal({
               >
                 <Settings className="h-4 w-4" />
                 מרכז פיקוד
+              </Button>
+            )}
+
+            {/* Restore Session Button - for cancelled sessions */}
+            {isAdmin && session.status === 'cancelled' && (
+              <Button
+                variant="outline"
+                className="gap-2 border-success text-success hover:bg-success/10"
+                onClick={() => restoreSession.mutate()}
+                disabled={restoreSession.isPending}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {restoreSession.isPending ? 'משחזר...' : 'שחזר שיעור'}
               </Button>
             )}
             

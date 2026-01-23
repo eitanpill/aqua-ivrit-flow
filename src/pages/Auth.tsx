@@ -435,7 +435,40 @@ export default function Auth() {
               </Button>
             </form>
             
-            <div className="mt-4 text-center">
+            <div className="mt-4 space-y-2 text-center">
+              <button 
+                className="text-sm text-primary hover:underline font-medium block w-full"
+                onClick={async () => {
+                  if (!loginForm.email) {
+                    toast({
+                      title: "שגיאה",
+                      description: "יש להזין כתובת אימייל",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setIsLoading(true);
+                  const { error } = await supabase.auth.resetPasswordForEmail(loginForm.email, {
+                    redirectTo: `${window.location.origin}/auth`,
+                  });
+                  setIsLoading(false);
+                  if (error) {
+                    toast({
+                      title: "שגיאה",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "נשלח בהצלחה",
+                      description: "מייל לשחזור סיסמה נשלח לכתובת שהזנת",
+                    });
+                  }
+                }}
+                disabled={isLoading}
+              >
+                שכחתי סיסמה
+              </button>
               <button 
                 className="text-sm text-muted-foreground hover:text-primary"
                 onClick={() => setAuthView('landing')}
