@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDeviceType } from "@/hooks/useDeviceType";
+import { useState } from "react";
 
 type MenuItem = {
   title: string;
@@ -26,12 +28,29 @@ type MenuItem = {
 };
 
 export function AppSidebar() {
-  const { state, setOpenMobile } = useSidebar();
+  const { state, setOpenMobile, setOpen } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, isCoach, isCustomer, isStaff } = useAuth();
   const isMobile = useIsMobile();
+  const { isTablet } = useDeviceType();
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Tablet: expand on hover
+  const handleMouseEnter = () => {
+    if (isTablet) {
+      setIsHovered(true);
+      setOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isTablet) {
+      setIsHovered(false);
+      setOpen(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -139,8 +158,8 @@ export function AppSidebar() {
                       : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {!collapsed && <span>{item.title}</span>}
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  {!effectiveCollapsed && <span>{item.title}</span>}
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -150,14 +169,23 @@ export function AppSidebar() {
     );
   };
 
+  // Calculate effective collapsed state (tablet uses hover)
+  const effectiveCollapsed = isTablet ? !isHovered : collapsed;
+
   return (
-    <Sidebar side="right" collapsible="icon" className="border-s border-sidebar-border flex-shrink-0">
+    <Sidebar 
+      side="right" 
+      collapsible="icon" 
+      className="border-s border-sidebar-border flex-shrink-0 transition-all duration-200"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary flex-shrink-0">
             <Waves className="h-6 w-6 text-primary-foreground" />
           </div>
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <div className="flex flex-col">
               <span className="text-lg font-bold text-sidebar-foreground">AquaFlow</span>
               <span className="text-xs text-muted-foreground">ניהול בית ספר לשחייה</span>
@@ -230,8 +258,8 @@ export function AppSidebar() {
           onClick={handleLogout}
           className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span>התנתקות</span>}
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          {!effectiveCollapsed && <span>התנתקות</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>

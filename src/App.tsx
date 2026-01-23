@@ -9,6 +9,7 @@ import { AdminRoute } from "@/components/auth/AdminRoute";
 import { StaffRoute } from "@/components/auth/StaffRoute";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SchoolProvider } from "@/contexts/SchoolContext";
+import { DeviceProvider } from "@/hooks/useDeviceType";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Locations from "@/pages/Locations";
@@ -48,11 +49,12 @@ function DashboardWithOnboarding() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <SchoolProvider>
-        <TooltipProvider>
-        <Toaster />
-        <Sonner />
+    <DeviceProvider>
+      <AuthProvider>
+        <SchoolProvider>
+          <TooltipProvider>
+          <Toaster />
+          <Sonner />
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
@@ -97,9 +99,10 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        </TooltipProvider>
-      </SchoolProvider>
-    </AuthProvider>
+          </TooltipProvider>
+        </SchoolProvider>
+      </AuthProvider>
+    </DeviceProvider>
   </QueryClientProvider>
 );
 

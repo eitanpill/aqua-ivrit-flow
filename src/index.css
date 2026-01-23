@@ -530,3 +530,19 @@
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
+
+/* Safe area inset for mobile devices with notch */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Mobile bottom nav spacing */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
