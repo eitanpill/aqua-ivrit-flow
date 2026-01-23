@@ -202,6 +202,10 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
 
   const swimmersList = activeEnrollments.map((e: any) => e.swimmer).filter(Boolean);
 
+  // Check if session is in the future - block attendance marking
+  const isFutureSession = new Date() < new Date(session.start_time);
+  const isAttendanceDisabled = isFutureSession || saveAttendance.isPending;
+
   return (
     <TooltipProvider>
       <div className="min-h-screen pb-28" dir="rtl">
@@ -288,14 +292,22 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
 
             {/* Attendance Tab */}
             <TabsContent value="attendance" className="space-y-4 mt-0">
+              {/* Future Session Warning */}
+              {isFutureSession && (
+                <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center gap-3 text-warning">
+                  <Clock className="h-5 w-5 shrink-0" />
+                  <span className="font-medium">ניתן לסמן נוכחות רק לאחר תחילת השיעור</span>
+                </div>
+              )}
+
               {/* Mark All Present Button */}
-              {activeEnrollments.length > 0 && unmarkedCount > 0 && (
+              {activeEnrollments.length > 0 && unmarkedCount > 0 && !isFutureSession && (
                 <Button
                   variant="outline"
                   size="lg"
                   className="w-full h-14 text-lg gap-2 border-2 border-success/50 text-success hover:bg-success/10 rounded-2xl font-semibold interactive"
                   onClick={markAllPresent}
-                  disabled={saveAttendance.isPending}
+                  disabled={isAttendanceDisabled}
                 >
                   <CheckCheck className="h-6 w-6" />
                   סמן את כולם כנוכחים
@@ -397,11 +409,12 @@ export function SessionMode({ session, onBack }: SessionModeProps) {
 
                             {/* Large 3-State Toggle */}
                             <button
-                              onClick={() => handleAttendanceToggle(enrollment.id, swimmer.id)}
-                              disabled={saveAttendance.isPending}
+                              onClick={() => !isAttendanceDisabled && handleAttendanceToggle(enrollment.id, swimmer.id)}
+                              disabled={isAttendanceDisabled}
                               className={cn(
                                 'w-full h-16 rounded-2xl flex items-center justify-center gap-3 text-xl font-bold transition-all',
                                 'active:scale-[0.98] touch-manipulation relative overflow-hidden',
+                                isAttendanceDisabled && 'opacity-50 cursor-not-allowed',
                                 currentStatus === null &&
                                   'bg-muted/50 border-2 border-dashed border-muted-foreground/30 text-muted-foreground',
                                 currentStatus === 'present' &&
