@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Pencil, Shield, UserCog, User } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
+import { isValidIsraeliPhone, israeliPhoneErrorMessage } from "@/lib/phoneUtils";
 
 interface UserProfile {
   id: string;
@@ -28,6 +29,7 @@ export function EditUserModal({ user, open, onOpenChange }: EditUserModalProps) 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [role, setRole] = useState<AppRole>("customer");
   const queryClient = useQueryClient();
 
@@ -36,9 +38,30 @@ export function EditUserModal({ user, open, onOpenChange }: EditUserModalProps) 
       setFirstName(user.first_name || "");
       setLastName(user.last_name || "");
       setPhone(user.phone || "");
+      setPhoneError(null);
       setRole(user.role);
     }
   }, [user]);
+
+  const validatePhone = (value: string) => {
+    if (!value) {
+      setPhoneError(null);
+      return true;
+    }
+    const digits = value.replace(/\D/g, "");
+    if (digits && !isValidIsraeliPhone(digits)) {
+      setPhoneError(israeliPhoneErrorMessage);
+      return false;
+    }
+    setPhoneError(null);
+    return true;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhone(value);
+    validatePhone(value);
+  };
 
   const updateUserMutation = useMutation({
     mutationFn: async () => {
@@ -48,7 +71,7 @@ export function EditUserModal({ user, open, onOpenChange }: EditUserModalProps) 
         p_user_id: user.id,
         p_first_name: firstName,
         p_last_name: lastName,
-        p_phone: phone || null,
+        p_phone: phone ? phone.replace(/\D/g, "") : null,
         p_role: role,
       });
 
@@ -75,6 +98,10 @@ export function EditUserModal({ user, open, onOpenChange }: EditUserModalProps) 
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("יש להזין שם פרטי ושם משפחה");
+      return;
+    }
+    if (phone && !validatePhone(phone)) {
+      toast.error(israeliPhoneErrorMessage);
       return;
     }
     updateUserMutation.mutate();
@@ -121,12 +148,15 @@ export function EditUserModal({ user, open, onOpenChange }: EditUserModalProps) 
               <Input
                 id="editPhone"
                 type="tel"
-                placeholder="050-1234567"
+                placeholder="0521234567"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={handlePhoneChange}
                 dir="ltr"
-                className="text-right"
+                className={`text-right ${phoneError ? "border-destructive" : ""}`}
               />
+              {phoneError && (
+                <p className="text-sm text-destructive">{phoneError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="editRole">תפקיד</Label>

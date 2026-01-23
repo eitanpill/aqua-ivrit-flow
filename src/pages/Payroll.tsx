@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { 
@@ -29,15 +28,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { format, startOfMonth, subMonths, addMonths } from "date-fns";
 import { he } from "date-fns/locale";
+import { AdaptiveTable, type AdaptiveColumn, type AdaptiveAction } from "@/components/ui/adaptive-table";
 
 interface CoachPayroll {
   coach_id: string;
@@ -185,6 +178,104 @@ export default function Payroll() {
 
   const totalPayroll = payrollData?.reduce((sum, coach) => sum + (coach.payroll?.total_pay || 0), 0) || 0;
 
+  // Define columns for AdaptiveTable
+  const columns: AdaptiveColumn<CoachPayroll>[] = [
+    {
+      key: "name",
+      header: "מאמן",
+      primary: true,
+      render: (coach) => <span className="font-medium">{coach.coach_name}</span>,
+    },
+    {
+      key: "sessions",
+      header: "שיעורים",
+      render: (coach) => <span>{coach.payroll?.completed_sessions || 0}</span>,
+    },
+    {
+      key: "students",
+      header: "תלמידים",
+      hideOnMobile: true,
+      render: (coach) => <span>{coach.payroll?.total_students_attended || 0}</span>,
+    },
+    {
+      key: "base_rate",
+      header: "בסיס לשיעור",
+      hideOnMobile: true,
+      render: (coach) => <span>₪{coach.payroll?.base_rate || 0}</span>,
+    },
+    {
+      key: "bonus_rate",
+      header: "בונוס לתלמיד",
+      hideOnMobile: true,
+      render: (coach) => <span>₪{coach.payroll?.per_student_bonus || 0}</span>,
+    },
+    {
+      key: "base_pay",
+      header: "תשלום בסיס",
+      hideOnMobile: true,
+      render: (coach) => <span>₪{coach.payroll?.base_pay || 0}</span>,
+    },
+    {
+      key: "bonus_pay",
+      header: "בונוסים",
+      render: (coach) => (
+        <span className="text-green-600">₪{coach.payroll?.bonus_pay || 0}</span>
+      ),
+    },
+    {
+      key: "adjustments",
+      header: "התאמות",
+      hideOnMobile: true,
+      render: (coach) => (
+        <Badge
+          variant={
+            (coach.payroll?.adjustments_total || 0) > 0
+              ? "default"
+              : (coach.payroll?.adjustments_total || 0) < 0
+              ? "destructive"
+              : "outline"
+          }
+        >
+          ₪{coach.payroll?.adjustments_total || 0}
+        </Badge>
+      ),
+    },
+    {
+      key: "total",
+      header: "סה״כ",
+      render: (coach) => (
+        <span className="font-bold text-lg">₪{coach.payroll?.total_pay || 0}</span>
+      ),
+    },
+  ];
+
+  // Define actions for AdaptiveTable
+  const actions: AdaptiveAction<CoachPayroll>[] = [
+    {
+      label: "הוסף בונוס",
+      icon: Plus,
+      onClick: (coach) =>
+        setAdjustmentDialog({
+          open: true,
+          coachId: coach.coach_id,
+          coachName: coach.coach_name,
+          type: "bonus",
+        }),
+    },
+    {
+      label: "הוסף ניכוי",
+      icon: Minus,
+      variant: "destructive",
+      onClick: (coach) =>
+        setAdjustmentDialog({
+          open: true,
+          coachId: coach.coach_id,
+          coachName: coach.coach_name,
+          type: "deduction",
+        }),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -290,93 +381,14 @@ export default function Payroll() {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : !payrollData?.length ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">אין מאמנים עם נתוני שכר לחודש זה</p>
-            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">מאמן</TableHead>
-                  <TableHead className="text-right">שיעורים</TableHead>
-                  <TableHead className="text-right">תלמידים</TableHead>
-                  <TableHead className="text-right">בסיס לשיעור</TableHead>
-                  <TableHead className="text-right">בונוס לתלמיד</TableHead>
-                  <TableHead className="text-right">תשלום בסיס</TableHead>
-                  <TableHead className="text-right">בונוסים</TableHead>
-                  <TableHead className="text-right">התאמות</TableHead>
-                  <TableHead className="text-right">סה״כ</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payrollData.map((coach) => (
-                  <TableRow key={coach.coach_id}>
-                    <TableCell className="font-medium">{coach.coach_name}</TableCell>
-                    <TableCell>{coach.payroll?.completed_sessions || 0}</TableCell>
-                    <TableCell>{coach.payroll?.total_students_attended || 0}</TableCell>
-                    <TableCell>₪{coach.payroll?.base_rate || 0}</TableCell>
-                    <TableCell>₪{coach.payroll?.per_student_bonus || 0}</TableCell>
-                    <TableCell>₪{coach.payroll?.base_pay || 0}</TableCell>
-                    <TableCell className="text-green-600">
-                      ₪{coach.payroll?.bonus_pay || 0}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          (coach.payroll?.adjustments_total || 0) > 0
-                            ? "default"
-                            : (coach.payroll?.adjustments_total || 0) < 0
-                            ? "destructive"
-                            : "outline"
-                        }
-                      >
-                        ₪{coach.payroll?.adjustments_total || 0}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-bold text-lg">
-                      ₪{coach.payroll?.total_pay || 0}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() =>
-                            setAdjustmentDialog({
-                              open: true,
-                              coachId: coach.coach_id,
-                              coachName: coach.coach_name,
-                              type: "bonus",
-                            })
-                          }
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() =>
-                            setAdjustmentDialog({
-                              open: true,
-                              coachId: coach.coach_id,
-                              coachName: coach.coach_name,
-                              type: "deduction",
-                            })
-                          }
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <AdaptiveTable
+              data={payrollData || []}
+              columns={columns}
+              actions={actions}
+              keyExtractor={(coach) => coach.coach_id}
+              emptyMessage="אין מאמנים עם נתוני שכר לחודש זה"
+            />
           )}
         </CardContent>
       </Card>

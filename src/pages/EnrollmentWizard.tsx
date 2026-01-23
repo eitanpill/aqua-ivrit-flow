@@ -16,12 +16,14 @@ import { toast } from "sonner";
 import { Search, UserPlus, Clock, Users, AlertTriangle, CheckCircle, XCircle, Loader2, ListPlus } from "lucide-react";
 import { format } from "date-fns";
 import { HEBREW_DAYS } from "@/lib/session-generator";
+import { getHebrewAgeLabel } from "@/lib/phoneUtils";
 
 interface Swimmer {
   id: string;
   first_name: string;
   last_name: string;
   birth_date: string | null;
+  gender?: "male" | "female" | "other" | null;
   parent_id: string;
   profiles?: { first_name: string; last_name: string; phone: string };
 }
@@ -375,7 +377,14 @@ export default function EnrollmentWizard() {
                             onClick={() => setSelectedSwimmer(swimmer)}
                           >
                             <TableCell className="font-medium">
-                              {swimmer.first_name} {swimmer.last_name}
+                              <div className="flex items-center gap-2">
+                                <span>{swimmer.first_name} {swimmer.last_name}</span>
+                                {swimmer.birth_date && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {getHebrewAgeLabel(swimmer.birth_date, swimmer.gender)}
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm">
                               {swimmer.profiles?.first_name} {swimmer.profiles?.last_name}
