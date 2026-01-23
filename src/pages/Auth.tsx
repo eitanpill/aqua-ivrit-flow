@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Waves, Mail, Lock, User, Building2, AlertCircle } from "lucide-react";
+import { Waves, Mail, Lock, User, Building2, AlertCircle, Play, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DEMO_CREDENTIALS } from "@/hooks/useDemoMode";
 
 const loginSchema = z.object({
   email: z.string().email("כתובת אימייל לא תקינה"),
@@ -33,6 +34,8 @@ interface SchoolInfo {
   logo_url: string | null;
 }
 
+type AuthView = 'landing' | 'login' | 'signup' | 'create-school';
+
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,10 +43,11 @@ export default function Auth() {
   const inviteSlug = searchParams.get("invite");
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [invitedSchool, setInvitedSchool] = useState<SchoolInfo | null>(null);
   const [isLoadingSchool, setIsLoadingSchool] = useState(!!inviteSlug);
   const [schoolNotFound, setSchoolNotFound] = useState(false);
-  const [isCreatingSchool, setIsCreatingSchool] = useState(false);
+  const [authView, setAuthView] = useState<AuthView>(inviteSlug ? 'signup' : 'landing');
   
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ 
@@ -67,6 +71,7 @@ export default function Auth() {
           setSchoolNotFound(true);
         } else {
           setInvitedSchool(data as unknown as SchoolInfo);
+          setAuthView('signup');
         }
         setIsLoadingSchool(false);
       };
@@ -89,6 +94,24 @@ export default function Auth() {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: DEMO_CREDENTIALS.email,
+      password: DEMO_CREDENTIALS.password,
+    });
+
+    if (error) {
+      toast({
+        title: "שגיאה בכניסה למצב הדגמה",
+        description: "לא ניתן להתחבר למערכת ההדגמה כעת. נסה שוב מאוחר יותר.",
+        variant: "destructive",
+      });
+    }
+    setIsDemoLoading(false);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +147,7 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate based on mode
+    const isCreatingSchool = authView === 'create-school';
     const schema = isCreatingSchool ? schoolOwnerSchema : signupSchema;
     const result = schema.safeParse(signupForm);
     
@@ -137,7 +160,6 @@ export default function Auth() {
       return;
     }
 
-    // Check: Must have invite OR create school mode
     if (!inviteSlug && !isCreatingSchool) {
       toast({
         title: "שגיאה",
@@ -150,7 +172,6 @@ export default function Auth() {
     setIsLoading(true);
     const redirectUrl = `${window.location.origin}/`;
 
-    // Step 1: Create user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: signupForm.email,
       password: signupForm.password,
@@ -185,11 +206,8 @@ export default function Auth() {
       return;
     }
 
-    // Step 2: Handle school association
-    // Use setTimeout to avoid auth deadlock
     setTimeout(async () => {
       if (isCreatingSchool) {
-        // Flow A: Create new school
         const { data: schoolResult, error: schoolError } = await supabase.rpc(
           'create_school_for_owner',
           {
@@ -213,7 +231,6 @@ export default function Auth() {
           });
         }
       } else if (inviteSlug) {
-        // Flow B: Join existing school
         const { data: joinResult, error: joinError } = await supabase.rpc(
           'join_school_by_slug',
           {
@@ -240,7 +257,6 @@ export default function Auth() {
     }, 100);
   };
 
-  // Loading state for invite verification
   if (isLoadingSchool) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -252,7 +268,6 @@ export default function Auth() {
     );
   }
 
-  // Error state for invalid invite
   if (schoolNotFound) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -267,9 +282,13 @@ export default function Auth() {
           <CardContent>
             <Button 
               className="w-full" 
-              onClick={() => navigate("/auth")}
+              onClick={() => {
+                setSchoolNotFound(false);
+                setAuthView('landing');
+                navigate("/auth");
+              }}
             >
-              חזרה לדף ההרשמה
+              חזרה לדף הראשי
             </Button>
           </CardContent>
         </Card>
@@ -277,198 +296,287 @@ export default function Auth() {
     );
   }
 
+  // Landing Page with Split View
+  if (authView === 'landing') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+          <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float" />
+          <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: "1.5s" }} />
+        </div>
+
+        <div className="w-full max-w-lg relative z-10 space-y-6">
+          {/* Logo & Title */}
+          <div className="text-center space-y-4">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl gradient-primary aqua-glow">
+              <Waves className="h-10 w-10 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">AquaFlow</h1>
+              <p className="text-muted-foreground mt-1">מערכת ניהול בית ספר לשחייה</p>
+            </div>
+          </div>
+
+          {/* Action Cards */}
+          <div className="space-y-4">
+            {/* Primary - Create School */}
+            <Card 
+              className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 border-2"
+              onClick={() => setAuthView('create-school')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-xl gradient-primary flex items-center justify-center shrink-0">
+                    <Building2 className="h-7 w-7 text-primary-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">אני רוצה להקים בית ספר</h3>
+                    <p className="text-sm text-muted-foreground">צור בית ספר לשחייה משלך ונהל אותו</p>
+                  </div>
+                  <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Secondary - Demo Mode */}
+            <Card 
+              className="cursor-pointer transition-all hover:shadow-lg hover:border-amber-500/50 border-2 border-dashed"
+              onClick={handleDemoLogin}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shrink-0">
+                    <Play className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">סיור במערכת הדגמה</h3>
+                    <p className="text-sm text-muted-foreground">היכנס לגרסת דמו עם נתונים לדוגמה</p>
+                  </div>
+                  {isDemoLoading ? (
+                    <div className="h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Existing User Link */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              כבר יש לך חשבון?{" "}
+              <button 
+                className="text-primary hover:underline font-medium"
+                onClick={() => setAuthView('login')}
+              >
+                התחבר
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Login View
+  if (authView === 'login') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+        </div>
+
+        <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary aqua-glow">
+              <Waves className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">התחברות</CardTitle>
+              <CardDescription>הזן את פרטי החשבון שלך</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">אימייל</Label>
+                <div className="relative">
+                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    className="pr-10"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">סיסמה</Label>
+                <div className="relative">
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pr-10"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
+                {isLoading ? "מתחבר..." : "התחבר"}
+              </Button>
+            </form>
+            
+            <div className="mt-4 text-center">
+              <button 
+                className="text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setAuthView('landing')}
+              >
+                ← חזרה לדף הראשי
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Create School / Signup View
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float" />
-        <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: "1.5s" }} />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50 backdrop-blur-sm">
+      <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary aqua-glow">
             <Waves className="h-8 w-8 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">AquaFlow</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              {invitedSchool ? "הצטרפות לבית ספר" : "הקמת בית ספר חדש"}
+            </CardTitle>
             {invitedSchool ? (
-              <CardDescription className="text-base">
+              <CardDescription>
                 הצטרפות לבית הספר: <span className="font-semibold text-foreground">{invitedSchool.name}</span>
               </CardDescription>
             ) : (
-              <CardDescription>מערכת ניהול בית ספר לשחייה</CardDescription>
+              <CardDescription>צור את בית הספר שלך והתחל לנהל</CardDescription>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue={invitedSchool ? "signup" : "login"} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">כניסה</TabsTrigger>
-              <TabsTrigger value="signup">הרשמה</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">אימייל</Label>
-                  <div className="relative">
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      className="pr-10"
-                      value={loginForm.email}
-                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                      dir="ltr"
-                    />
-                  </div>
+          <form onSubmit={handleSignup} className="space-y-4">
+            {/* School name input - only when creating school */}
+            {authView === 'create-school' && !invitedSchool && (
+              <div className="space-y-2">
+                <Label htmlFor="signup-schoolname">שם בית הספר</Label>
+                <div className="relative">
+                  <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="signup-schoolname"
+                    type="text"
+                    placeholder="בית ספר לשחייה"
+                    className="pr-10"
+                    value={signupForm.schoolName}
+                    onChange={(e) => setSignupForm({ ...signupForm, schoolName: e.target.value })}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">סיסמה</Label>
-                  <div className="relative">
-                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      className="pr-10"
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      dir="ltr"
-                    />
-                  </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="signup-firstname">שם פרטי</Label>
+                <div className="relative">
+                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="signup-firstname"
+                    type="text"
+                    placeholder="ישראל"
+                    className="pr-10"
+                    value={signupForm.firstName}
+                    onChange={(e) => setSignupForm({ ...signupForm, firstName: e.target.value })}
+                  />
                 </div>
-                <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
-                  {isLoading ? "מתחבר..." : "התחבר"}
-                </Button>
-              </form>
-            </TabsContent>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-lastname">שם משפחה</Label>
+                <Input
+                  id="signup-lastname"
+                  type="text"
+                  placeholder="ישראלי"
+                  value={signupForm.lastName}
+                  onChange={(e) => setSignupForm({ ...signupForm, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-email">אימייל</Label>
+              <div className="relative">
+                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  className="pr-10"
+                  value={signupForm.email}
+                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                  dir="ltr"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password">סיסמה</Label>
+              <div className="relative">
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="signup-password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pr-10"
+                  value={signupForm.password}
+                  onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                  dir="ltr"
+                />
+              </div>
+            </div>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                {/* Show invite info or school creation toggle */}
-                {invitedSchool ? (
-                  <Alert className="bg-primary/10 border-primary/20">
-                    <Building2 className="h-4 w-4" />
-                    <AlertDescription>
-                      נרשם לבית הספר: <strong>{invitedSchool.name}</strong>
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="create-school" className="text-base font-medium cursor-pointer">
-                        אני רוצה לפתוח בית ספר חדש
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        צור בית ספר משלך ונהל אותו
-                      </p>
-                    </div>
-                    <Switch
-                      id="create-school"
-                      checked={isCreatingSchool}
-                      onCheckedChange={setIsCreatingSchool}
-                    />
-                  </div>
-                )}
-
-                {/* School name input - only when creating school */}
-                {isCreatingSchool && !invitedSchool && (
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-schoolname">שם בית הספר</Label>
-                    <div className="relative">
-                      <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-schoolname"
-                        type="text"
-                        placeholder="בית ספר לשחייה"
-                        className="pr-10"
-                        value={signupForm.schoolName}
-                        onChange={(e) => setSignupForm({ ...signupForm, schoolName: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-firstname">שם פרטי</Label>
-                    <div className="relative">
-                      <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-firstname"
-                        type="text"
-                        placeholder="ישראל"
-                        className="pr-10"
-                        value={signupForm.firstName}
-                        onChange={(e) => setSignupForm({ ...signupForm, firstName: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-lastname">שם משפחה</Label>
-                    <Input
-                      id="signup-lastname"
-                      type="text"
-                      placeholder="ישראלי"
-                      value={signupForm.lastName}
-                      onChange={(e) => setSignupForm({ ...signupForm, lastName: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">אימייל</Label>
-                  <div className="relative">
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      className="pr-10"
-                      value={signupForm.email}
-                      onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">סיסמה</Label>
-                  <div className="relative">
-                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      className="pr-10"
-                      value={signupForm.password}
-                      onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-
-                {/* Warning if no invite and not creating school */}
-                {!invitedSchool && !isCreatingSchool && (
-                  <Alert variant="destructive" className="text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      יש לבחור "פתיחת בית ספר חדש" או להירשם דרך קישור הזמנה מבית ספר קיים
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <Button 
-                  type="submit" 
-                  className="w-full gradient-primary" 
-                  disabled={isLoading || (!invitedSchool && !isCreatingSchool)}
-                >
-                  {isLoading ? "נרשם..." : invitedSchool ? "הצטרף לבית הספר" : "צור בית ספר והירשם"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+            <Button 
+              type="submit" 
+              className="w-full gradient-primary" 
+              disabled={isLoading}
+            >
+              {isLoading ? "נרשם..." : invitedSchool ? "הצטרף לבית הספר" : "צור בית ספר והירשם"}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center space-y-2">
+            <button 
+              className="text-sm text-muted-foreground hover:text-primary"
+              onClick={() => setAuthView('landing')}
+            >
+              ← חזרה לדף הראשי
+            </button>
+            <p className="text-sm text-muted-foreground">
+              כבר יש לך חשבון?{" "}
+              <button 
+                className="text-primary hover:underline font-medium"
+                onClick={() => setAuthView('login')}
+              >
+                התחבר
+              </button>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
