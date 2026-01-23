@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, Users, Building2, CreditCard } from "lucide-react";
+import { Settings as SettingsIcon, Users, Building2, CreditCard, Webhook } from "lucide-react";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { SchoolProfile } from "@/components/settings/SchoolProfile";
 import { PaymentSettings } from "@/components/settings/PaymentSettings";
+import { WebhookSettings } from "@/components/settings/WebhookSettings";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Settings() {
@@ -34,6 +35,12 @@ export default function Settings() {
               תשלומים
             </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="integrations" className="gap-2">
+              <Webhook className="h-4 w-4" />
+              אינטגרציות
+            </TabsTrigger>
+          )}
           <TabsTrigger value="general" className="gap-2">
             <SettingsIcon className="h-4 w-4" />
             הגדרות כלליות
@@ -53,6 +60,12 @@ export default function Settings() {
         {isAdmin && (
           <TabsContent value="payments">
             <PaymentSettings />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="integrations">
+            <WebhookSettings />
           </TabsContent>
         )}
 

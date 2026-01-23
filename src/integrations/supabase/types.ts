@@ -992,6 +992,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          notification_webhook_url: string | null
           owner_id: string | null
           phone: string | null
           slug: string
@@ -1004,6 +1005,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          notification_webhook_url?: string | null
           owner_id?: string | null
           phone?: string | null
           slug: string
@@ -1016,6 +1018,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          notification_webhook_url?: string | null
           owner_id?: string | null
           phone?: string | null
           slug?: string
