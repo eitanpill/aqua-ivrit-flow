@@ -1837,6 +1837,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_demo_user: { Args: never; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       join_school_by_slug: {
@@ -1849,6 +1850,7 @@ export type Database = {
       }
       migrate_to_multi_tenant: { Args: never; Returns: Json }
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
+      seed_demo_school: { Args: never; Returns: Json }
       set_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
