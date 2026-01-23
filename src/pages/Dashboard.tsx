@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, Waves, Calendar, DollarSign, TrendingUp, Loader2, UserCircle, CreditCard } from "lucide-react";
+import { MapPin, Users, Waves, Calendar, DollarSign, TrendingUp, Loader2, UserCircle, CreditCard, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { MyBookings } from "@/components/customer/MyBookings";
 import { EmergencyOperations } from "@/components/admin/EmergencyOperations";
+import { useSchool } from "@/contexts/SchoolContext";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
   totalSwimmers: number;
@@ -20,25 +22,41 @@ interface DashboardStats {
 export default function Dashboard() {
   const { isAdmin, isCoach, isCustomer, isStaff, user } = useAuth();
   const navigate = useNavigate();
+  const { activeSchoolId, isSuperAdmin, allSchools, currentSchool } = useSchool();
 
-  // Fetch real stats from database
+  // Get active school name for display
+  const activeSchoolName = isSuperAdmin 
+    ? allSchools.find(s => s.id === activeSchoolId)?.name 
+    : currentSchool?.name;
+
+  // Fetch real stats from database - filtered by activeSchoolId
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["dashboard-stats", isAdmin],
+    queryKey: ["dashboard-stats", isAdmin, activeSchoolId],
     queryFn: async (): Promise<DashboardStats> => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
+      // Build base queries with school_id filter
+      let swimmersQuery = supabase.from("swimmers").select("*", { count: "exact", head: true });
+      let locationsQuery = supabase.from("locations").select("*", { count: "exact", head: true });
+      let sessionsQuery = supabase.from("sessions").select("*", { count: "exact", head: true })
+        .gte("start_time", today.toISOString())
+        .lt("start_time", tomorrow.toISOString());
+      
+      // Apply school filter if activeSchoolId is set
+      if (activeSchoolId) {
+        swimmersQuery = swimmersQuery.eq("school_id", activeSchoolId);
+        locationsQuery = locationsQuery.eq("school_id", activeSchoolId);
+        sessionsQuery = sessionsQuery.eq("school_id", activeSchoolId);
+      }
+
       // Get swimmers count
-      const { count: swimmersCount } = await supabase
-        .from("swimmers")
-        .select("*", { count: "exact", head: true });
+      const { count: swimmersCount } = await swimmersQuery;
 
       // Get locations count
-      const { count: locationsCount } = await supabase
-        .from("locations")
-        .select("*", { count: "exact", head: true });
+      const { count: locationsCount } = await locationsQuery;
 
       // Get coaches count from user_roles
       const { count: coachesCount } = await supabase
@@ -47,11 +65,7 @@ export default function Dashboard() {
         .in("role", ["coach", "admin"]);
 
       // Get today's sessions
-      const { count: todaySessionsCount } = await supabase
-        .from("sessions")
-        .select("*", { count: "exact", head: true })
-        .gte("start_time", today.toISOString())
-        .lt("start_time", tomorrow.toISOString());
+      const { count: todaySessionsCount } = await sessionsQuery;
 
       let totalRevenue = 0;
       let activeEnrollments = 0;
@@ -66,12 +80,17 @@ export default function Dashboard() {
 
         totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-        // Get active enrollments
-        const { count: enrollmentsCount } = await supabase
+        // Get active enrollments with school filter
+        let enrollmentsQuery = supabase
           .from("enrollments")
           .select("*", { count: "exact", head: true })
           .eq("status", "confirmed");
+        
+        if (activeSchoolId) {
+          enrollmentsQuery = enrollmentsQuery.eq("school_id", activeSchoolId);
+        }
 
+        const { count: enrollmentsCount } = await enrollmentsQuery;
         activeEnrollments = enrollmentsCount || 0;
       }
 
@@ -84,6 +103,7 @@ export default function Dashboard() {
         activeEnrollments,
       };
     },
+    enabled: !!activeSchoolId || !isSuperAdmin, // Run if we have a school or not super admin
   });
 
   // Fetch recent activity
@@ -144,15 +164,23 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">
-          {getGreeting()}! 👋
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {isAdmin && "ברוכים הבאים לממשק הניהול של AquaFlow"}
-          {isCoach && "ברוכים הבאים לממשק המאמן"}
-          {isCustomer && "ברוכים הבאים ל-AquaFlow"}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            {getGreeting()}! 👋
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isAdmin && "ברוכים הבאים לממשק הניהול של AquaFlow"}
+            {isCoach && "ברוכים הבאים לממשק המאמן"}
+            {isCustomer && !isStaff && "ברוכים הבאים ל-AquaFlow"}
+          </p>
+        </div>
+        {isSuperAdmin && activeSchoolName && (
+          <Badge variant="outline" className="gap-2 py-2 px-3 text-sm">
+            <Building2 className="h-4 w-4" />
+            {activeSchoolName}
+          </Badge>
+        )}
       </div>
 
       {/* Stats Grid - Different for each role */}
