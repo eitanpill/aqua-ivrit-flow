@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, Users, Building2, CreditCard, Webhook } from "lucide-react";
+import { Settings as SettingsIcon, Users, Building2, CreditCard, Webhook, Shield, Trash2 } from "lucide-react";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { SchoolProfile } from "@/components/settings/SchoolProfile";
 import { PaymentSettings } from "@/components/settings/PaymentSettings";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
+import { AuditLogViewer } from "@/components/settings/AuditLogViewer";
+import { DeletedItemsManager } from "@/components/settings/DeletedItemsManager";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Settings() {
@@ -18,7 +20,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="school" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="school" className="gap-2">
             <Building2 className="h-4 w-4" />
             פרופיל בית הספר
@@ -39,6 +41,18 @@ export default function Settings() {
             <TabsTrigger value="integrations" className="gap-2">
               <Webhook className="h-4 w-4" />
               אינטגרציות
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="audit" className="gap-2">
+              <Shield className="h-4 w-4" />
+              יומן ביקורת
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="deleted" className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              פריטים מחוקים
             </TabsTrigger>
           )}
           <TabsTrigger value="general" className="gap-2">
@@ -66,6 +80,18 @@ export default function Settings() {
         {isAdmin && (
           <TabsContent value="integrations">
             <WebhookSettings />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="audit">
+            <AuditLogViewer />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="deleted">
+            <DeletedItemsManager />
           </TabsContent>
         )}
 
