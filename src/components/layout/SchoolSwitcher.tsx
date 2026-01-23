@@ -15,36 +15,77 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useSchool } from "@/contexts/SchoolContext";
-import { useState } from "react";
+import { useState, useContext } from "react";
+import React from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+interface School {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export function SchoolSwitcher() {
-  const { 
-    currentSchool, 
-    activeSchoolId, 
-    allSchools, 
-    isSuperAdmin, 
-    setActiveSchoolId,
-    isLoadingSchool 
-  } = useSchool();
-  
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [allSchools, setAllSchools] = useState<School[]>([]);
+  const [activeSchoolId, setActiveSchoolIdState] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Only show for super admin
-  if (!isSuperAdmin) {
+  // Check super admin status and fetch schools
+  React.useEffect(() => {
+    const checkAndFetch = async () => {
+      if (!user) {
+        setIsSuperAdmin(false);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await (supabase.rpc as any)('is_super_admin');
+        if (!error && data === true) {
+          setIsSuperAdmin(true);
+          
+          // Fetch all schools
+          const { data: schools } = await supabase
+            .from('schools')
+            .select('id, name, slug')
+            .order('name');
+          
+          setAllSchools(schools || []);
+          
+          // Load from localStorage
+          const stored = localStorage.getItem('activeSchoolId');
+          if (stored) {
+            setActiveSchoolIdState(stored);
+          } else if (schools && schools.length > 0) {
+            setActiveSchoolIdState(schools[0].id);
+          }
+        } else {
+          setIsSuperAdmin(false);
+        }
+      } catch {
+        setIsSuperAdmin(false);
+      }
+      setIsLoading(false);
+    };
+
+    checkAndFetch();
+  }, [user?.id]);
+
+  const setActiveSchoolId = (id: string) => {
+    setActiveSchoolIdState(id);
+    localStorage.setItem('activeSchoolId', id);
+  };
+
+  // Don't render anything if not super admin or still loading
+  if (isLoading || !isSuperAdmin) {
     return null;
   }
 
-  const activeSchool = allSchools.find(s => s.id === activeSchoolId) || currentSchool;
-
-  if (isLoadingSchool) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-        <Building2 className="h-4 w-4 animate-pulse" />
-        <span>טוען...</span>
-      </div>
-    );
-  }
+  const activeSchool = allSchools.find(s => s.id === activeSchoolId);
 
   return (
     <div className="flex items-center gap-2">
