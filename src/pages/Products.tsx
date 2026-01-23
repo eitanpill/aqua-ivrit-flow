@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,7 @@ const productTypeIcons: Record<ProductType, React.ReactNode> = {
 export default function Products() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeSchoolId } = useSchool();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -96,7 +98,10 @@ export default function Products() {
       duration_days: number | null;
       active: boolean;
     }) => {
-      const { error } = await supabase.from("products" as any).insert([newProduct]);
+      const { error } = await supabase.from("products" as any).insert([{
+        ...newProduct,
+        school_id: activeSchoolId,
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {
