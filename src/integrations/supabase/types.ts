@@ -1898,17 +1898,7 @@ export type Database = {
       }
     }
     Views: {
-      deleted_items: {
-        Row: {
-          deleted_at: string | null
-          deleted_by: string | null
-          entity_id: string | null
-          entity_type: string | null
-          name: string | null
-          school_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       add_to_waitlist: {
@@ -2018,6 +2008,18 @@ export type Database = {
       get_active_payment_config: {
         Args: { p_school_id: string }
         Returns: Json
+      }
+      get_deleted_items: {
+        Args: never
+        Returns: {
+          deleted_at: string
+          deleted_by: string
+          deleted_by_name: string
+          entity_id: string
+          entity_type: string
+          name: string
+          school_id: string
+        }[]
       }
       get_family_debts: {
         Args: never
