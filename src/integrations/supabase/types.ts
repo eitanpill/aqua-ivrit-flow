@@ -287,6 +287,7 @@ export type Database = {
           effective_from: string
           effective_to: string | null
           id: string
+          per_student_bonus: number | null
           rate_per_hour: number
           school_id: string | null
           updated_at: string
@@ -297,6 +298,7 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          per_student_bonus?: number | null
           rate_per_hour?: number
           school_id?: string | null
           updated_at?: string
@@ -307,6 +309,7 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          per_student_bonus?: number | null
           rate_per_hour?: number
           school_id?: string | null
           updated_at?: string
@@ -671,6 +674,64 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "payment_configs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_adjustments: {
+        Row: {
+          amount: number
+          coach_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          month: string
+          school_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          coach_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          month: string
+          school_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          coach_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          month?: string
+          school_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_adjustments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustments_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
@@ -1762,6 +1823,10 @@ export type Database = {
         Args: { p_sub_coach_id: string; p_substitution_id: string }
         Returns: Json
       }
+      calculate_coach_payroll: {
+        Args: { p_coach_id: string; p_month: string }
+        Returns: Json
+      }
       calculate_proration: {
         Args: {
           p_base_price: number
@@ -1832,6 +1897,7 @@ export type Database = {
           total_pending: number
         }[]
       }
+      get_monthly_payroll_summary: { Args: { p_month: string }; Returns: Json }
       get_next_waitlist_position: {
         Args: { p_session_id: string }
         Returns: number
