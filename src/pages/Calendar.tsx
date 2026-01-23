@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, addMinutes } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   ChevronRight,
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { WeeklyCalendar } from '@/components/calendar/WeeklyCalendar';
 import { CalendarFilters } from '@/components/calendar/CalendarFilters';
 import { SessionModal } from '@/components/calendar/SessionModal';
+import { CreateSessionModal } from '@/components/calendar/CreateSessionModal';
 import { HEBREW_MONTHS } from '@/lib/session-generator';
 
 export default function Calendar() {
@@ -25,6 +26,14 @@ export default function Calendar() {
   const [selectedCoach, setSelectedCoach] = useState('all');
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [duplicateData, setDuplicateData] = useState<{
+    class_type_id: string;
+    coach_id: string | null;
+    resource_id: string | null;
+    max_participants: number;
+    notes: string | null;
+  } | null>(null);
 
   // Force coach filter for non-admin coaches
   useEffect(() => {
@@ -171,6 +180,17 @@ export default function Calendar() {
     updateSessionNotes.mutate({ sessionId, notes });
   };
 
+  const handleDuplicate = (sessionData: {
+    class_type_id: string;
+    coach_id: string | null;
+    resource_id: string | null;
+    max_participants: number;
+    notes: string | null;
+  }) => {
+    setDuplicateData(sessionData);
+    setIsCreateModalOpen(true);
+  };
+
   // Stats for the header
   const scheduledCount = filteredSessions.filter((s: any) => s.status === 'scheduled').length;
   const completedCount = filteredSessions.filter((s: any) => s.status === 'completed').length;
@@ -271,7 +291,20 @@ export default function Calendar() {
         onOpenChange={setIsModalOpen}
         onCancel={handleCancelSession}
         onUpdateNotes={handleUpdateNotes}
+        onDuplicate={isAdmin ? handleDuplicate : undefined}
       />
+
+      {/* Create Session Modal (for duplication) */}
+      {isAdmin && (
+        <CreateSessionModal
+          open={isCreateModalOpen}
+          onOpenChange={(open) => {
+            setIsCreateModalOpen(open);
+            if (!open) setDuplicateData(null);
+          }}
+          prefillData={duplicateData}
+        />
+      )}
     </div>
   );
 }

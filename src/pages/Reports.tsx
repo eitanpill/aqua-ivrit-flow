@@ -18,16 +18,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   DollarSign, 
   Users, 
   TrendingUp, 
   Download,
   Calendar,
-  Clock
+  Clock,
+  ClipboardList
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { he } from "date-fns/locale";
+
+const ATTENDANCE_STATUS_HEBREW: Record<string, string> = {
+  present: "נוכח",
+  absent: "נעדר",
+  late: "איחר",
+  excused: "נעדר מוצדק",
+};
 
 const Reports = () => {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
@@ -165,6 +174,42 @@ const Reports = () => {
     },
   });
 
+  // Fetch attendance data for export
+  const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
+    queryKey: ["attendance-report", selectedMonth],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("attendance")
+        .select(`
+          id,
+          status,
+          marked_at,
+          sessions (
+            start_time,
+            class_types (name),
+            coach:profiles!sessions_coach_id_fkey (first_name, last_name)
+          ),
+          swimmers (first_name, last_name)
+        `)
+        .gte("marked_at", monthStart.toISOString())
+        .lte("marked_at", monthEnd.toISOString())
+        .order("marked_at", { ascending: false });
+
+      if (error) throw error;
+      return data as Array<{
+        id: string;
+        status: string;
+        marked_at: string;
+        sessions: {
+          start_time: string;
+          class_types: { name: string } | null;
+          coach: { first_name: string | null; last_name: string | null } | null;
+        } | null;
+        swimmers: { first_name: string; last_name: string } | null;
+      }>;
+    },
+  });
+
   // Generate month options (last 12 months)
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const date = subMonths(new Date(), i);
@@ -174,7 +219,7 @@ const Reports = () => {
     };
   });
 
-  // Export to CSV
+  // Export payroll to CSV
   const handleExportCSV = () => {
     if (!payrollData || payrollData.length === 0) return;
 
@@ -199,6 +244,42 @@ const Reports = () => {
     const link = document.createElement("a");
     link.href = url;
     link.download = `payroll-${selectedMonth}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export attendance to CSV
+  const handleExportAttendanceCSV = () => {
+    if (!attendanceData || attendanceData.length === 0) {
+      return;
+    }
+
+    const headers = ["תאריך", "שם השיעור", "שם המאמן", "שם השחיין", "סטטוס"];
+    const rows = attendanceData.map((record) => {
+      const sessionDate = record.sessions?.start_time
+        ? format(new Date(record.sessions.start_time), "dd/MM/yyyy HH:mm")
+        : "-";
+      const className = record.sessions?.class_types?.name || "-";
+      const coachName = record.sessions?.coach
+        ? `${record.sessions.coach.first_name || ""} ${record.sessions.coach.last_name || ""}`.trim()
+        : "-";
+      const swimmerName = record.swimmers
+        ? `${record.swimmers.first_name} ${record.swimmers.last_name}`
+        : "-";
+      const status = ATTENDANCE_STATUS_HEBREW[record.status] || record.status;
+
+      return [sessionDate, className, coachName, swimmerName, status];
+    });
+
+    const csvContent =
+      "\uFEFF" + // BOM for Hebrew support
+      [headers.join(","), ...rows.map((r) => r.map((cell) => `"${cell}"`).join(","))].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `attendance-${selectedMonth}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -286,65 +367,167 @@ const Reports = () => {
         </Card>
       </div>
 
-      {/* Payroll Report */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            <CardTitle>דוח שכר מאמנים</CardTitle>
-          </div>
-          <Button onClick={handleExportCSV} variant="outline" size="sm">
-            <Download className="h-4 w-4 ml-2" />
-            ייצא לאקסל
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">שם המאמן</TableHead>
-                  <TableHead className="text-right">שעות עבודה</TableHead>
-                  <TableHead className="text-right">תעריף לשעה</TableHead>
-                  <TableHead className="text-right">סה״כ שכר</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payrollData && payrollData.length > 0 ? (
-                  <>
-                    {payrollData.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell>{row.hours} שעות</TableCell>
-                        <TableCell>₪{row.hourlyRate.toFixed(2)}</TableCell>
-                        <TableCell className="font-semibold">
-                          ₪{row.totalSalary.toFixed(2)}
+      {/* Tabs for different reports */}
+      <Tabs defaultValue="payroll" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="payroll" className="gap-2">
+            <Clock className="h-4 w-4" />
+            דוח שכר
+          </TabsTrigger>
+          <TabsTrigger value="attendance" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            דוח נוכחות
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Payroll Report */}
+        <TabsContent value="payroll">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle>דוח שכר מאמנים</CardTitle>
+              </div>
+              <Button onClick={handleExportCSV} variant="outline" size="sm">
+                <Download className="h-4 w-4 ml-2" />
+                ייצא לאקסל
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">שם המאמן</TableHead>
+                      <TableHead className="text-right">שעות עבודה</TableHead>
+                      <TableHead className="text-right">תעריף לשעה</TableHead>
+                      <TableHead className="text-right">סה״כ שכר</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payrollData && payrollData.length > 0 ? (
+                      <>
+                        {payrollData.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell className="font-medium">{row.name}</TableCell>
+                            <TableCell>{row.hours} שעות</TableCell>
+                            <TableCell>₪{row.hourlyRate.toFixed(2)}</TableCell>
+                            <TableCell className="font-semibold">
+                              ₪{row.totalSalary.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>סה״כ</TableCell>
+                          <TableCell>
+                            {payrollData.reduce((sum, r) => sum + r.hours, 0)} שעות
+                          </TableCell>
+                          <TableCell></TableCell>
+                          <TableCell>
+                            ₪{payrollData.reduce((sum, r) => sum + r.totalSalary, 0).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          אין נתוני שכר לחודש זה
                         </TableCell>
                       </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell>סה״כ</TableCell>
-                      <TableCell>
-                        {payrollData.reduce((sum, r) => sum + r.hours, 0)} שעות
-                      </TableCell>
-                      <TableCell></TableCell>
-                      <TableCell>
-                        ₪{payrollData.reduce((sum, r) => sum + r.totalSalary, 0).toFixed(2)}
-                      </TableCell>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Attendance Report */}
+        <TabsContent value="attendance">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-primary" />
+                <CardTitle>דוח נוכחות</CardTitle>
+              </div>
+              <Button 
+                onClick={handleExportAttendanceCSV} 
+                variant="outline" 
+                size="sm"
+                disabled={!attendanceData || attendanceData.length === 0}
+              >
+                <Download className="h-4 w-4 ml-2" />
+                ייצוא לאקסל
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">תאריך</TableHead>
+                      <TableHead className="text-right">שם השיעור</TableHead>
+                      <TableHead className="text-right">מאמן</TableHead>
+                      <TableHead className="text-right">שחיין</TableHead>
+                      <TableHead className="text-right">סטטוס</TableHead>
                     </TableRow>
-                  </>
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      אין נתוני שכר לחודש זה
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {attendanceLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          טוען...
+                        </TableCell>
+                      </TableRow>
+                    ) : attendanceData && attendanceData.length > 0 ? (
+                      attendanceData.slice(0, 50).map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>
+                            {record.sessions?.start_time
+                              ? format(new Date(record.sessions.start_time), "dd/MM/yyyy HH:mm")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>{record.sessions?.class_types?.name || "-"}</TableCell>
+                          <TableCell>
+                            {record.sessions?.coach
+                              ? `${record.sessions.coach.first_name || ""} ${record.sessions.coach.last_name || ""}`.trim()
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {record.swimmers
+                              ? `${record.swimmers.first_name} ${record.swimmers.last_name}`
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <span className={
+                              record.status === "present" ? "text-success" :
+                              record.status === "absent" ? "text-destructive" :
+                              "text-warning"
+                            }>
+                              {ATTENDANCE_STATUS_HEBREW[record.status] || record.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          אין נתוני נוכחות לחודש זה
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {attendanceData && attendanceData.length > 50 && (
+                <p className="text-sm text-muted-foreground mt-4 text-center">
+                  מוצגות 50 רשומות ראשונות. לצפייה בכל הנתונים, ייצא לאקסל.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
