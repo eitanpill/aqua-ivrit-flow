@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Calendar, Loader2, Play, Trash2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -36,7 +37,7 @@ interface Term {
 interface ScheduleSeries {
   id: string;
   name: string;
-  term_id: string;
+  term_id: string | null;
   class_type_id: string;
   coach_id: string | null;
   resource_id: string | null;
@@ -46,6 +47,8 @@ interface ScheduleSeries {
   max_participants: number;
   recurrence_weeks: number;
   active: boolean;
+  start_date?: string | null;
+  end_date?: string | null;
   term_name?: string;
   class_type_name?: string;
   resource_name?: string;
@@ -89,6 +92,10 @@ export default function ScheduleBuilder() {
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [maxParticipants, setMaxParticipants] = useState("8");
   const [recurrenceWeeks, setRecurrenceWeeks] = useState("12");
+  // New: standalone date range (no term needed)
+  const [useDateRange, setUseDateRange] = useState(false);
+  const [seriesStartDate, setSeriesStartDate] = useState("");
+  const [seriesEndDate, setSeriesEndDate] = useState("");
 
   // Fetch terms
   const { data: terms, isLoading: termsLoading } = useQuery({
@@ -234,20 +241,30 @@ export default function ScheduleBuilder() {
   // Create series mutation
   const createSeriesMutation = useMutation({
     mutationFn: async () => {
+      const insertData: any = {
+        name: seriesName,
+        class_type_id: selectedClassTypeId,
+        coach_id: selectedCoachId || null,
+        resource_id: selectedResourceId || null,
+        day_of_week: parseInt(selectedDay),
+        start_time: startTime,
+        duration_minutes: parseInt(durationMinutes),
+        max_participants: parseInt(maxParticipants),
+        recurrence_weeks: parseInt(recurrenceWeeks),
+      };
+
+      // Use either term OR date range
+      if (useDateRange) {
+        insertData.start_date = seriesStartDate;
+        insertData.end_date = seriesEndDate;
+        insertData.term_id = null;
+      } else {
+        insertData.term_id = selectedTermId;
+      }
+
       const { data, error } = await (supabase as any)
         .from("schedule_series")
-        .insert({
-          name: seriesName,
-          term_id: selectedTermId,
-          class_type_id: selectedClassTypeId,
-          coach_id: selectedCoachId || null,
-          resource_id: selectedResourceId || null,
-          day_of_week: parseInt(selectedDay),
-          start_time: startTime,
-          duration_minutes: parseInt(durationMinutes),
-          max_participants: parseInt(maxParticipants),
-          recurrence_weeks: parseInt(recurrenceWeeks),
-        })
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;
@@ -325,7 +342,15 @@ export default function ScheduleBuilder() {
     setDurationMinutes("45");
     setMaxParticipants("8");
     setRecurrenceWeeks("12");
+    setUseDateRange(false);
+    setSeriesStartDate("");
+    setSeriesEndDate("");
   };
+
+  // Check if can create series
+  const canCreateSeries = seriesName && selectedClassTypeId && selectedDay && (
+    useDateRange ? (seriesStartDate && seriesEndDate) : selectedTermId
+  );
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "dd/MM/yyyy");
@@ -474,7 +499,7 @@ export default function ScheduleBuilder() {
               </div>
               <Dialog open={isSeriesDialogOpen} onOpenChange={setIsSeriesDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button disabled={!terms?.length}>
+                  <Button>
                     <Plus className="ml-2 h-4 w-4" />
                     סדרה חדשה
                   </Button>
@@ -483,7 +508,7 @@ export default function ScheduleBuilder() {
                   <DialogHeader>
                     <DialogTitle>יצירת סדרת שיעורים</DialogTitle>
                     <DialogDescription>
-                      הגדר שיעור חוזר שייווצר אוטומטית לאורך העונה
+                      הגדר שיעור חוזר שייווצר אוטומטית
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -497,7 +522,46 @@ export default function ScheduleBuilder() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Date Range Toggle */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                      <div className="space-y-0.5">
+                        <Label>הגדר תאריכים ידנית</Label>
+                        <p className="text-xs text-muted-foreground">
+                          {useDateRange ? "הזן תאריכי התחלה וסיום" : "השתמש בעונה קיימת"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={useDateRange}
+                        onCheckedChange={(checked) => {
+                          setUseDateRange(checked);
+                          if (checked) setSelectedTermId("");
+                        }}
+                      />
+                    </div>
+
+                    {/* Term OR Date Range */}
+                    {useDateRange ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="seriesStartDate">תאריך התחלה</Label>
+                          <Input
+                            id="seriesStartDate"
+                            type="date"
+                            value={seriesStartDate}
+                            onChange={(e) => setSeriesStartDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="seriesEndDate">תאריך סיום</Label>
+                          <Input
+                            id="seriesEndDate"
+                            type="date"
+                            value={seriesEndDate}
+                            onChange={(e) => setSeriesEndDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ) : (
                       <div className="space-y-2">
                         <Label>עונה</Label>
                         <Select value={selectedTermId} onValueChange={setSelectedTermId}>
@@ -512,23 +576,28 @@ export default function ScheduleBuilder() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {!terms?.length && (
+                          <p className="text-xs text-amber-600">
+                            אין עונות - עבור ללשונית "עונות" ליצירת עונה, או הפעל "הגדר תאריכים ידנית"
+                          </p>
+                        )}
                       </div>
+                    )}
 
-                      <div className="space-y-2">
-                        <Label>סוג שיעור</Label>
-                        <Select value={selectedClassTypeId} onValueChange={setSelectedClassTypeId}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="בחר סוג שיעור" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {classTypes?.map((ct) => (
-                              <SelectItem key={ct.id} value={ct.id}>
-                                {ct.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label>סוג שיעור</Label>
+                      <Select value={selectedClassTypeId} onValueChange={setSelectedClassTypeId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="בחר סוג שיעור" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classTypes?.map((ct) => (
+                            <SelectItem key={ct.id} value={ct.id}>
+                              {ct.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -640,13 +709,7 @@ export default function ScheduleBuilder() {
                     </Button>
                     <Button
                       onClick={() => createSeriesMutation.mutate()}
-                      disabled={
-                        !seriesName ||
-                        !selectedTermId ||
-                        !selectedClassTypeId ||
-                        !selectedDay ||
-                        createSeriesMutation.isPending
-                      }
+                      disabled={!canCreateSeries || createSeriesMutation.isPending}
                     >
                       {createSeriesMutation.isPending && (
                         <Loader2 className="ml-2 h-4 w-4 animate-spin" />
@@ -658,13 +721,7 @@ export default function ScheduleBuilder() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              {!terms?.length ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>יש ליצור עונה לפני שניתן להוסיף סדרות</p>
-                  <p className="text-sm">עבור ללשונית "עונות" כדי להתחיל</p>
-                </div>
-              ) : seriesLoading ? (
+              {seriesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
@@ -679,7 +736,7 @@ export default function ScheduleBuilder() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>שם</TableHead>
-                      <TableHead>עונה</TableHead>
+                      <TableHead>תקופה</TableHead>
                       <TableHead>סוג שיעור</TableHead>
                       <TableHead>יום ושעה</TableHead>
                       <TableHead>בריכה</TableHead>
@@ -691,7 +748,11 @@ export default function ScheduleBuilder() {
                     {seriesList?.map((series) => (
                       <TableRow key={series.id}>
                         <TableCell className="font-medium">{series.name}</TableCell>
-                        <TableCell>{series.term_name}</TableCell>
+                        <TableCell>
+                          {series.term_name || (series.start_date && series.end_date 
+                            ? `${formatDate(series.start_date)} - ${formatDate(series.end_date)}`
+                            : "-")}
+                        </TableCell>
                         <TableCell>{series.class_type_name}</TableCell>
                         <TableCell>
                           {HEBREW_DAYS[series.day_of_week]} {series.start_time.slice(0, 5)}

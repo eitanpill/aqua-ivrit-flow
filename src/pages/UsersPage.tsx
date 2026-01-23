@@ -1,26 +1,27 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Search, Loader2, UserCog, Shield, User } from "lucide-react";
+import { Users, Search, Loader2, UserCog, Shield, User, UserPlus, Pencil, Trash2, Calendar } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { WhatsAppButton } from "@/components/ui/whatsapp-button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CreateUserModal } from "@/components/users/CreateUserModal";
+import { EditUserModal } from "@/components/users/EditUserModal";
+import { DeleteUserDialog } from "@/components/users/DeleteUserDialog";
+import { UserEnrollmentSheet } from "@/components/users/UserEnrollmentSheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -50,18 +51,19 @@ const roleBadgeVariant: Record<AppRole, "default" | "secondary" | "outline"> = {
 };
 
 export default function UsersPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [newRole, setNewRole] = useState<AppRole>("customer");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
+  
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserProfile | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UserProfile | null>(null);
+  const [enrollmentUser, setEnrollmentUser] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch all users with their profiles and roles
   const { data: users, isLoading } = useQuery({
     queryKey: ["all-users"],
     queryFn: async () => {
-      // Get all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, phone, created_at, role")
@@ -69,7 +71,6 @@ export default function UsersPage() {
 
       if (profilesError) throw profilesError;
 
-      // Get roles from user_roles table
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles" as any)
         .select("user_id, role");
@@ -78,7 +79,6 @@ export default function UsersPage() {
         console.error("Error fetching roles:", rolesError);
       }
 
-      // Merge - prefer user_roles over profiles.role
       const usersWithRoles: UserProfile[] = profiles.map((p) => {
         const userRole = (roles as any[])?.find((r) => r.user_id === p.id);
         return {
@@ -92,67 +92,17 @@ export default function UsersPage() {
     enabled: isAdmin,
   });
 
-  // Get current user id for self-check
-  const { user: currentUser } = useAuth();
-
-  // Mutation to update user role via secure RPC
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      const { data, error } = await supabase
-        .rpc('set_user_role' as any, { _user_id: userId, _role: role });
-
-      if (error) throw error;
-      
-      const result = data as unknown as { success: boolean; error?: string };
-      if (!result.success) {
-        throw new Error(result.error || "שגיאה בעדכון התפקיד");
-      }
-
-      // Also update profiles for backward compatibility
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ role })
-        .eq("id", userId);
-
-      if (profileError) console.warn("Profile sync failed:", profileError);
-
-      return { userId, role };
-    },
-    onSuccess: (data) => {
-      toast.success(`התפקיד עודכן ל${roleLabels[data.role]} בהצלחה!`);
-      queryClient.invalidateQueries({ queryKey: ["all-users"] });
-      queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
-      setIsDialogOpen(false);
-      setSelectedUser(null);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const handleRoleChange = () => {
-    if (selectedUser) {
-      updateRoleMutation.mutate({ userId: selectedUser.id, role: newRole });
-    }
-  };
-
-  const openRoleDialog = (user: UserProfile) => {
-    // Prevent admin from editing their own role
-    if (user.id === currentUser?.id) {
-      toast.error("לא ניתן לשנות את התפקיד של עצמך");
-      return;
-    }
-    setSelectedUser(user);
-    setNewRole(user.role);
-    setIsDialogOpen(true);
-  };
-
   // Filter users by search term
   const filteredUsers = users?.filter((user) => {
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
     const phone = user.phone?.toLowerCase() || "";
     return fullName.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm.toLowerCase());
   });
+
+  const openEnrollmentSheet = (user: UserProfile) => {
+    const name = `${user.first_name || ""} ${user.last_name || ""}`.trim() || "ללא שם";
+    setEnrollmentUser({ id: user.id, name });
+  };
 
   if (!isAdmin) {
     return (
@@ -164,176 +114,159 @@ export default function UsersPage() {
 
   return (
     <TooltipProvider>
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">ניהול משתמשים</h1>
-        <p className="text-muted-foreground mt-1">צפייה ועריכת תפקידי משתמשים במערכת</p>
-      </div>
-
-      {/* Search */}
-      <Card className="border-border/50">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="חיפוש לפי שם או טלפון..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">ניהול משתמשים</h1>
+            <p className="text-muted-foreground mt-1">צפייה, יצירה ועריכת משתמשים במערכת</p>
           </div>
-        </CardContent>
-      </Card>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <UserPlus className="h-4 w-4 ml-2" />
+            משתמש חדש
+          </Button>
+        </div>
 
-      {/* Users Table */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            רשימת משתמשים
-          </CardTitle>
-          <CardDescription>
-            {filteredUsers?.length || 0} משתמשים במערכת
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        {/* Search */}
+        <Card className="border-border/50">
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="חיפוש לפי שם או טלפון..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-10"
+              />
             </div>
-          ) : !filteredUsers?.length ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">לא נמצאו משתמשים</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">שם</TableHead>
-                  <TableHead className="text-right">טלפון</TableHead>
-                  <TableHead className="text-right">תפקיד נוכחי</TableHead>
-                  <TableHead className="text-right">תאריך הצטרפות</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => {
-                  const RoleIcon = roleIcons[user.role];
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        {user.first_name || user.last_name
-                          ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                          : "ללא שם"}
-                      </TableCell>
-                      <TableCell dir="ltr" className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span>{user.phone || "-"}</span>
-                          {user.phone && (
-                            <WhatsAppButton
-                              phone={user.phone}
-                              name={`${user.first_name || ""} ${user.last_name || ""}`.trim()}
-                            />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={roleBadgeVariant[user.role]} className="gap-1">
-                          <RoleIcon className="h-3 w-3" />
-                          {roleLabels[user.role]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleDateString("he-IL")}
-                      </TableCell>
-                      <TableCell>
-                        {user.id === currentUser?.id ? (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            אתה
+          </CardContent>
+        </Card>
+
+        {/* Users Table */}
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              רשימת משתמשים
+            </CardTitle>
+            <CardDescription>
+              {filteredUsers?.length || 0} משתמשים במערכת
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : !filteredUsers?.length ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">לא נמצאו משתמשים</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">שם</TableHead>
+                    <TableHead className="text-right">טלפון</TableHead>
+                    <TableHead className="text-right">תפקיד</TableHead>
+                    <TableHead className="text-right">תאריך הצטרפות</TableHead>
+                    <TableHead className="text-right">פעולות</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => {
+                    const RoleIcon = roleIcons[user.role];
+                    const isCurrentUser = user.id === currentUser?.id;
+                    const userName = user.first_name || user.last_name
+                      ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+                      : "ללא שם";
+
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{userName}</TableCell>
+                        <TableCell dir="ltr" className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span>{user.phone || "-"}</span>
+                            {user.phone && (
+                              <WhatsAppButton phone={user.phone} name={userName} />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={roleBadgeVariant[user.role]} className="gap-1">
+                            <RoleIcon className="h-3 w-3" />
+                            {roleLabels[user.role]}
                           </Badge>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openRoleDialog(user)}
-                          >
-                            <UserCog className="h-4 w-4 ml-2" />
-                            שנה תפקיד
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleDateString("he-IL")}
+                        </TableCell>
+                        <TableCell>
+                          {isCurrentUser ? (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              אתה
+                            </Badge>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setEditUser(user)}>
+                                  <Pencil className="h-4 w-4 ml-2" />
+                                  ערוך פרטים
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEnrollmentSheet(user)}>
+                                  <Calendar className="h-4 w-4 ml-2" />
+                                  ניהול הרשמות
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setDeleteUser(user)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 ml-2" />
+                                  מחק משתמש
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Role Change Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>שינוי תפקיד משתמש</DialogTitle>
-            <DialogDescription>
-              שינוי תפקיד עבור{" "}
-              <strong>
-                {selectedUser?.first_name} {selectedUser?.last_name}
-              </strong>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>תפקיד נוכחי</Label>
-              <Badge variant={roleBadgeVariant[selectedUser?.role || "customer"]}>
-                {roleLabels[selectedUser?.role || "customer"]}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-role">תפקיד חדש</Label>
-              <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      לקוח
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="coach">
-                    <div className="flex items-center gap-2">
-                      <UserCog className="h-4 w-4" />
-                      מאמן/מדריך
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="admin">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
-                      מנהל
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              ביטול
-            </Button>
-            <Button onClick={handleRoleChange} disabled={updateRoleMutation.isPending}>
-              {updateRoleMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin ml-2" />
-              ) : null}
-              שמור שינויים
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        {/* Modals */}
+        <CreateUserModal
+          open={isCreateModalOpen}
+          onOpenChange={setIsCreateModalOpen}
+        />
+        
+        <EditUserModal
+          user={editUser}
+          open={!!editUser}
+          onOpenChange={(open) => !open && setEditUser(null)}
+        />
+        
+        <DeleteUserDialog
+          user={deleteUser}
+          open={!!deleteUser}
+          onOpenChange={(open) => !open && setDeleteUser(null)}
+        />
+        
+        <UserEnrollmentSheet
+          userId={enrollmentUser?.id || null}
+          userName={enrollmentUser?.name || ""}
+          open={!!enrollmentUser}
+          onOpenChange={(open) => !open && setEnrollmentUser(null)}
+        />
+      </div>
     </TooltipProvider>
   );
 }
