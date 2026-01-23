@@ -828,14 +828,16 @@ export type Database = {
           created_at: string
           day_of_week: number
           duration_minutes: number
+          end_date: string | null
           id: string
           max_participants: number | null
           name: string
           recurrence_weeks: number
           resource_id: string | null
           school_id: string | null
+          start_date: string | null
           start_time: string
-          term_id: string
+          term_id: string | null
           updated_at: string
         }
         Insert: {
@@ -845,14 +847,16 @@ export type Database = {
           created_at?: string
           day_of_week: number
           duration_minutes?: number
+          end_date?: string | null
           id?: string
           max_participants?: number | null
           name: string
           recurrence_weeks?: number
           resource_id?: string | null
           school_id?: string | null
+          start_date?: string | null
           start_time: string
-          term_id: string
+          term_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -862,14 +866,16 @@ export type Database = {
           created_at?: string
           day_of_week?: number
           duration_minutes?: number
+          end_date?: string | null
           id?: string
           max_participants?: number | null
           name?: string
           recurrence_weeks?: number
           resource_id?: string | null
           school_id?: string | null
+          start_date?: string | null
           start_time?: string
-          term_id?: string
+          term_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1729,8 +1735,27 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_delete_user: { Args: { p_user_id: string }; Returns: Json }
+      admin_force_enroll: {
+        Args: {
+          p_enrollment_type?: Database["public"]["Enums"]["enrollment_type"]
+          p_session_id: string
+          p_swimmer_id: string
+        }
+        Returns: Json
+      }
       admin_promote_from_waitlist: {
         Args: { p_waitlist_id: string }
+        Returns: Json
+      }
+      admin_update_user: {
+        Args: {
+          p_first_name?: string
+          p_last_name?: string
+          p_phone?: string
+          p_role?: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
         Returns: Json
       }
       approve_substitution: {
@@ -1776,6 +1801,15 @@ export type Database = {
           p_phone?: string
           p_school_name: string
           p_user_id: string
+        }
+        Returns: Json
+      }
+      create_user_profile: {
+        Args: {
+          p_first_name: string
+          p_last_name: string
+          p_phone?: string
+          p_role?: Database["public"]["Enums"]["app_role"]
         }
         Returns: Json
       }
