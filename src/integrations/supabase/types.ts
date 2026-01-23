@@ -1840,6 +1840,15 @@ export type Database = {
         Args: { p_enrollment_id: string; p_notify_waitlist?: boolean }
         Returns: Json
       }
+      check_coach_conflict: {
+        Args: {
+          p_coach_id: string
+          p_end_time: string
+          p_exclude_session_id?: string
+          p_start_time: string
+        }
+        Returns: Json
+      }
       check_family_discount: { Args: { p_parent_id: string }; Returns: Json }
       check_pool_conflict: {
         Args: {

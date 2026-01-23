@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { X, Clock, MapPin, User, Users, FileText, AlertTriangle, Settings, RotateCcw } from 'lucide-react';
+import { X, Clock, MapPin, User, Users, FileText, AlertTriangle, Settings, RotateCcw, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -39,6 +39,9 @@ interface Session {
   status: string;
   notes: string | null;
   max_participants: number;
+  class_type_id?: string;
+  coach_id?: string | null;
+  resource_id?: string | null;
   class_type?: { name: string } | null;
   coach?: { first_name: string | null; last_name: string | null } | null;
   resource?: { name: string; location?: { name: string } | null } | null;
@@ -50,6 +53,13 @@ interface SessionModalProps {
   onOpenChange: (open: boolean) => void;
   onCancel: (sessionId: string) => void;
   onUpdateNotes: (sessionId: string, notes: string) => void;
+  onDuplicate?: (sessionData: {
+    class_type_id: string;
+    coach_id: string | null;
+    resource_id: string | null;
+    max_participants: number;
+    notes: string | null;
+  }) => void;
 }
 
 export function SessionModal({
@@ -58,6 +68,7 @@ export function SessionModal({
   onOpenChange,
   onCancel,
   onUpdateNotes,
+  onDuplicate,
 }: SessionModalProps) {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -258,6 +269,28 @@ export function SessionModal({
           </div>
 
           <DialogFooter className="flex gap-2 sm:gap-2 flex-wrap">
+            {/* Duplicate Session Button - Admin Only */}
+            {isAdmin && onDuplicate && session.class_type_id && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  onDuplicate({
+                    class_type_id: session.class_type_id!,
+                    coach_id: session.coach_id || null,
+                    resource_id: session.resource_id || null,
+                    max_participants: session.max_participants,
+                    notes: session.notes,
+                  });
+                  onOpenChange(false);
+                  toast.info('מלא את התאריך והשעה ליצירת שיעור משוכפל');
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                שכפל שיעור
+              </Button>
+            )}
+
             {/* Admin Command Center Button */}
             {isAdmin && (
               <Button
