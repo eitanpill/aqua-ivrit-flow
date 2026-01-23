@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck, Award, RefreshCw } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck, Award, RefreshCw, Wallet } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -89,7 +89,8 @@ export function AppSidebar() {
         { title: "אשף הרשמות", url: "/enrollment-wizard", icon: UserCheck },
         { title: "ניהול בריכות", url: "/locations", icon: MapPin },
         { title: "משתמשים", url: "/users", icon: Users },
-        { title: "דוחות ושכר", url: "/reports", icon: BarChart3 }
+        { title: "דוחות", url: "/reports", icon: BarChart3 },
+        { title: "דוח שכר", url: "/payroll", icon: Wallet }
       );
     }
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Search, Loader2, UserCog, Shield, User, UserPlus, Pencil, Trash2, Calendar } from "lucide-react";
+import { Users, Search, Loader2, UserCog, Shield, User, UserPlus, Pencil, Trash2, Calendar, Eye } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { WhatsAppButton } from "@/components/ui/whatsapp-button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +15,7 @@ import { CreateUserModal } from "@/components/users/CreateUserModal";
 import { EditUserModal } from "@/components/users/EditUserModal";
 import { DeleteUserDialog } from "@/components/users/DeleteUserDialog";
 import { UserEnrollmentSheet } from "@/components/users/UserEnrollmentSheet";
+import { CoachDetailsSheet } from "@/components/users/CoachDetailsSheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [deleteUser, setDeleteUser] = useState<UserProfile | null>(null);
   const [enrollmentUser, setEnrollmentUser] = useState<{ id: string; name: string } | null>(null);
+  const [coachDetails, setCoachDetails] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch all users with their profiles and roles
   const { data: users, isLoading } = useQuery({
@@ -218,6 +220,14 @@ export default function UsersPage() {
                                   <Pencil className="h-4 w-4 ml-2" />
                                   ערוך פרטים
                                 </DropdownMenuItem>
+                                {user.role === "coach" && (
+                                  <DropdownMenuItem 
+                                    onClick={() => setCoachDetails({ id: user.id, name: userName })}
+                                  >
+                                    <Eye className="h-4 w-4 ml-2" />
+                                    פרטי מאמן
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => openEnrollmentSheet(user)}>
                                   <Calendar className="h-4 w-4 ml-2" />
                                   ניהול הרשמות
@@ -265,6 +275,13 @@ export default function UsersPage() {
           userName={enrollmentUser?.name || ""}
           open={!!enrollmentUser}
           onOpenChange={(open) => !open && setEnrollmentUser(null)}
+        />
+
+        <CoachDetailsSheet
+          coachId={coachDetails?.id || null}
+          coachName={coachDetails?.name || ""}
+          open={!!coachDetails}
+          onOpenChange={(open) => !open && setCoachDetails(null)}
         />
       </div>
     </TooltipProvider>

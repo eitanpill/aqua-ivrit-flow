@@ -31,6 +31,7 @@ import EnrollmentWizard from "@/pages/EnrollmentWizard";
 import SkillsManagement from "@/pages/SkillsManagement";
 import Substitutions from "@/pages/Substitutions";
 import Onboarding from "@/pages/Onboarding";
+import Payroll from "@/pages/Payroll";
 import NotFound from "@/pages/NotFound";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
@@ -99,6 +100,7 @@ const App = () => (
                     <Route path="/schedule-builder" element={<AdminRoute><ScheduleBuilder /></AdminRoute>} />
                     <Route path="/enrollment-wizard" element={<AdminRoute><EnrollmentWizard /></AdminRoute>} />
                     <Route path="/skills-management" element={<AdminRoute><SkillsManagement /></AdminRoute>} />
+                    <Route path="/payroll" element={<AdminRoute><Payroll /></AdminRoute>} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
