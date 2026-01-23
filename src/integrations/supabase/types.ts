@@ -82,6 +82,59 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          school_id: string | null
+          user_agent: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          school_id?: string | null
+          user_agent?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          school_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       charges: {
         Row: {
           base_amount: number
@@ -768,9 +821,12 @@ export type Database = {
           active: boolean
           created_at: string
           credits_amount: number | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           duration_days: number | null
           id: string
+          is_deleted: boolean
           name: string
           price: number
           school_id: string | null
@@ -781,9 +837,12 @@ export type Database = {
           active?: boolean
           created_at?: string
           credits_amount?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           duration_days?: number | null
           id?: string
+          is_deleted?: boolean
           name: string
           price?: number
           school_id?: string | null
@@ -794,9 +853,12 @@ export type Database = {
           active?: boolean
           created_at?: string
           credits_amount?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           duration_days?: number | null
           id?: string
+          is_deleted?: boolean
           name?: string
           price?: number
           school_id?: string | null
@@ -817,8 +879,11 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           first_name: string | null
           id: string
+          is_deleted: boolean
           last_name: string | null
           phone: string | null
           role: Database["public"]["Enums"]["app_role"]
@@ -828,8 +893,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           first_name?: string | null
           id: string
+          is_deleted?: boolean
           last_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -839,8 +907,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           first_name?: string | null
           id?: string
+          is_deleted?: boolean
           last_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -1172,9 +1243,12 @@ export type Database = {
           class_type_id: string
           coach_id: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           end_time: string
           id: string
           is_cancelled: boolean
+          is_deleted: boolean
           max_participants: number | null
           notes: string | null
           resource_id: string | null
@@ -1190,9 +1264,12 @@ export type Database = {
           class_type_id: string
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time: string
           id?: string
           is_cancelled?: boolean
+          is_deleted?: boolean
           max_participants?: number | null
           notes?: string | null
           resource_id?: string | null
@@ -1208,9 +1285,12 @@ export type Database = {
           class_type_id?: string
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time?: string
           id?: string
           is_cancelled?: boolean
+          is_deleted?: boolean
           max_participants?: number | null
           notes?: string | null
           resource_id?: string | null
@@ -1517,9 +1597,12 @@ export type Database = {
         Row: {
           birth_date: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           first_name: string
           gender: Database["public"]["Enums"]["gender_type"] | null
           id: string
+          is_deleted: boolean
           last_name: string
           medical_notes: string | null
           parent_id: string
@@ -1530,9 +1613,12 @@ export type Database = {
         Insert: {
           birth_date?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           first_name: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
+          is_deleted?: boolean
           last_name: string
           medical_notes?: string | null
           parent_id: string
@@ -1543,9 +1629,12 @@ export type Database = {
         Update: {
           birth_date?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           first_name?: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
+          is_deleted?: boolean
           last_name?: string
           medical_notes?: string | null
           parent_id?: string
@@ -1809,7 +1898,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      deleted_items: {
+        Row: {
+          deleted_at: string | null
+          deleted_by: string | null
+          entity_id: string | null
+          entity_type: string | null
+          name: string | null
+          school_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_to_waitlist: {
@@ -1983,8 +2082,22 @@ export type Database = {
         }
         Returns: Json
       }
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_entity_id?: string
+          p_entity_name?: string
+          p_entity_type: string
+        }
+        Returns: string
+      }
       migrate_to_multi_tenant: { Args: never; Returns: Json }
       promote_from_waitlist: { Args: { p_waitlist_id: string }; Returns: Json }
+      restore_deleted_entity: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: Json
+      }
       seed_demo_school: { Args: never; Returns: Json }
       set_user_role: {
         Args: {
@@ -2006,6 +2119,9 @@ export type Database = {
         }
         Returns: Json
       }
+      soft_delete_product: { Args: { p_product_id: string }; Returns: Json }
+      soft_delete_session: { Args: { p_session_id: string }; Returns: Json }
+      soft_delete_swimmer: { Args: { p_swimmer_id: string }; Returns: Json }
       update_session_capacity: {
         Args: { p_max_participants: number; p_session_id: string }
         Returns: Json
