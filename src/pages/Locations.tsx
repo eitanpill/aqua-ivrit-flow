@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,16 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Plus, MapPin, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LocationModal } from "@/components/locations/LocationModal";
 
 interface Location {
   id: string;
@@ -35,8 +27,8 @@ interface Location {
 export default function Locations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", address: "", phone: "" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
 
   const { data: locations, isLoading } = useQuery({
     queryKey: ["locations"],
@@ -47,22 +39,6 @@ export default function Locations() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Location[];
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (newLocation: { name: string; address: string; phone: string }) => {
-      const { error } = await supabase.from("locations").insert([newLocation]);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations"] });
-      setIsDialogOpen(false);
-      setForm({ name: "", address: "", phone: "" });
-      toast({ title: "הבריכה נוספה בהצלחה" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "שגיאה", description: error.message, variant: "destructive" });
     },
   });
 
@@ -80,13 +56,14 @@ export default function Locations() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) {
-      toast({ title: "שגיאה", description: "שם הבריכה הוא שדה חובה", variant: "destructive" });
-      return;
-    }
-    createMutation.mutate(form);
+  const handleOpenCreate = () => {
+    setEditingLocation(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (location: Location) => {
+    setEditingLocation(location);
+    setIsModalOpen(true);
   };
 
   return (
@@ -96,58 +73,18 @@ export default function Locations() {
           <h1 className="text-3xl font-bold text-foreground">ניהול בריכות</h1>
           <p className="text-muted-foreground mt-1">ניהול מיקומי הבריכות במערכת</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary gap-2">
-              <Plus className="h-4 w-4" />
-              הוסף בריכה
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>הוספת בריכה חדשה</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">שם הבריכה *</Label>
-                <Input
-                  id="name"
-                  placeholder="בריכה מרכזית"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">כתובת</Label>
-                <Input
-                  id="address"
-                  placeholder="רחוב הרצל 1, תל אביב"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">טלפון</Label>
-                <Input
-                  id="phone"
-                  placeholder="03-1234567"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" className="flex-1 gradient-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "מוסיף..." : "הוסף"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  ביטול
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button className="gradient-primary gap-2" onClick={handleOpenCreate}>
+          <Plus className="h-4 w-4" />
+          הוסף בריכה
+        </Button>
       </div>
+
+      {/* Location Modal for Create/Edit */}
+      <LocationModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        location={editingLocation}
+      />
 
       <Card className="border-border/50">
         <CardHeader>
@@ -177,7 +114,12 @@ export default function Locations() {
                     <TableCell dir="ltr" className="text-right">{location.phone || "-"}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleOpenEdit(location)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
@@ -200,7 +142,7 @@ export default function Locations() {
               title="אין בריכות במערכת עדיין"
               description="הוסיפו את הבריכה הראשונה כדי להתחיל להשתמש במערכת"
               actionLabel="הוסף בריכה"
-              onAction={() => setIsDialogOpen(true)}
+              onAction={handleOpenCreate}
             />
           )}
         </CardContent>
