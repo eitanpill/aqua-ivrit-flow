@@ -15,8 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CreditCard, Package, Sparkles, Check, CheckCircle2 } from "lucide-react";
-import confetti from "canvas-confetti";
+import { CreditCard, Package, Sparkles, Check, ExternalLink } from "lucide-react";
 
 interface PurchaseModalProps {
   open: boolean;
@@ -26,29 +25,9 @@ interface PurchaseModalProps {
 
 interface PurchaseResponse {
   success: boolean;
+  paymentUrl?: string;
   message?: string;
   error?: string;
-  data?: {
-    transaction_id: string;
-    transaction_ref: string;
-    invoice_number: string | null;
-    product: {
-      id: string;
-      name: string;
-      type: string;
-      price: number;
-    };
-    subscription: {
-      id: string;
-      status: string;
-      start_date: string;
-      end_date: string | null;
-    } | null;
-    wallet: {
-      credits_added: number;
-      new_balance: number;
-    } | null;
-  };
 }
 
 const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) => {
@@ -72,33 +51,6 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
     },
     enabled: open,
   });
-
-  // Trigger confetti celebration
-  const triggerConfetti = () => {
-    const end = Date.now() + 2000;
-    const colors = ['#22c55e', '#3b82f6', '#8b5cf6'];
-
-    (function frame() {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.7 },
-        colors,
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.7 },
-        colors,
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
-  };
 
   // Purchase mutation using edge function
   const purchaseMutation = useMutation({
@@ -130,17 +82,25 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
       return data as PurchaseResponse;
     },
     onSuccess: (response) => {
-      // Trigger celebration
-      triggerConfetti();
-      
-      // Show success toast
-      toast.success(response.message || "הרכישה הושלמה בהצלחה!", {
-        description: response.data?.invoice_number 
-          ? `מספר חשבונית: ${response.data.invoice_number}`
-          : undefined,
-        icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
-        duration: 5000,
-      });
+      // Check if we have a payment URL (redirect to Morning payment page)
+      if (response.paymentUrl) {
+        // Show toast before redirect
+        toast.success("מעביר לתשלום מאובטח...", {
+          description: "תועבר לדף התשלום של Morning",
+          icon: <ExternalLink className="h-5 w-5 text-primary" />,
+          duration: 2000,
+        });
+
+        // Small delay to show toast, then redirect
+        setTimeout(() => {
+          window.location.href = response.paymentUrl!;
+        }, 1000);
+        
+        return;
+      }
+
+      // Fallback: If no payment URL, show success (shouldn't happen with Morning integration)
+      toast.success(response.message || "הרכישה הושלמה בהצלחה!");
 
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -204,7 +164,7 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
 
   return (
     <AdaptiveModal open={open} onOpenChange={onOpenChange}>
-      <AdaptiveModalContent className="max-w-2xl">
+      <AdaptiveModalContent className="max-w-2xl [direction:rtl]">
         <AdaptiveModalHeader>
           <AdaptiveModalTitle className="text-xl">רכישת קרדיטים</AdaptiveModalTitle>
           <AdaptiveModalDescription>
@@ -296,12 +256,12 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
             {purchaseMutation.isPending ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ml-2" />
-                מעבד תשלום...
+                מתחבר לסליקה...
               </>
             ) : (
               <>
                 <CreditCard className="h-4 w-4 ml-2" />
-                שלם עכשיו
+                המשך לתשלום
               </>
             )}
           </Button>

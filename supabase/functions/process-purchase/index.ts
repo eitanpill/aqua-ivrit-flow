@@ -35,74 +35,148 @@ Deno.serve(async (req) => {
       console.error('Missing required fields:', missingFields);
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields', 
+          success: false,
+          error: 'שדות חובה חסרים', 
           missing: missingFields 
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // INSERT into transactions table
-    console.log('Inserting transaction...');
-    const { data: transaction, error: transactionError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id,
-        school_id,
-        amount,
-        type: 'credit_purchase',
-        status: 'completed',
-        payment_method: 'manual',
-        description: `Purchase of product ${product_id}`,
-        reference_id: product_id,
-      })
-      .select()
+    // STEP 1: Fetch Payment Credentials from payment_configs table
+    console.log('Fetching payment credentials for school:', school_id);
+    
+    const { data: paymentConfig, error: configError } = await supabase
+      .from('payment_configs')
+      .select('api_key, api_secret')
+      .eq('school_id', school_id)
+      .eq('is_active', true)
       .single();
 
-    if (transactionError) {
-      console.error('Transaction insert error:', transactionError);
+    if (configError || !paymentConfig) {
+      console.error('Payment config error:', configError);
       return new Response(
-        JSON.stringify({ error: transactionError.message, details: transactionError }),
+        JSON.stringify({ 
+          success: false,
+          error: 'לא הוגדרו פרטי סליקה לבית הספר'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Transaction created:', transaction.id);
+    const { api_key, api_secret } = paymentConfig;
 
-    // Generate invoice number
-    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-    // INSERT into invoices table
-    console.log('Inserting invoice...');
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert({
-        user_id,
-        school_id,
-        transaction_id: transaction.id,
-        invoice_number: invoiceNumber,
-        amount,
-      })
-      .select()
-      .single();
-
-    if (invoiceError) {
-      console.error('Invoice insert error:', invoiceError);
+    if (!api_key || !api_secret) {
+      console.error('Missing API credentials');
       return new Response(
-        JSON.stringify({ error: invoiceError.message, details: invoiceError }),
+        JSON.stringify({ 
+          success: false,
+          error: 'פרטי סליקה חסרים - נא לעדכן את הגדרות התשלום'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Invoice created:', invoice.id);
+    console.log('Payment credentials found, proceeding to Morning API...');
 
-    // Success response
+    // STEP 2A: Get Token from Morning API
+    console.log('Requesting token from Morning API...');
+    
+    const tokenResponse = await fetch('https://api.morning.co/v2/users/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: api_key,
+        secret: api_secret,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.token) {
+      console.error('Morning token error:', tokenData);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'שגיאה בהתחברות לשירות הסליקה',
+          details: tokenData
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const morningToken = tokenData.token;
+    console.log('Morning token obtained successfully');
+
+    // STEP 2B: Generate Payment Link
+    console.log('Generating payment link...');
+
+    // Determine app URL for redirects
+    const appUrl = Deno.env.get('APP_URL') || 'https://aqua-ivrit-flow.lovable.app';
+
+    const paymentRequestBody = {
+      description: 'רכישה במערכת AquaFlow',
+      amount: amount,
+      currency: 'ILS',
+      maxPayments: 1,
+      successUrl: `${appUrl}/dashboard?payment=success`,
+      failureUrl: `${appUrl}/billing?payment=failed`,
+      client: {
+        name: `User ID ${user_id}`,
+      },
+    };
+
+    console.log('Payment request body:', paymentRequestBody);
+
+    const paymentResponse = await fetch('https://api.morning.co/v2/clearing/general/request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${morningToken}`,
+      },
+      body: JSON.stringify(paymentRequestBody),
+    });
+
+    const paymentData = await paymentResponse.json();
+
+    if (!paymentResponse.ok) {
+      console.error('Morning payment link error:', paymentData);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'שגיאה ביצירת קישור תשלום',
+          details: paymentData
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Extract payment URL from Morning response
+    const paymentUrl = paymentData.url || paymentData.paymentUrl;
+
+    if (!paymentUrl) {
+      console.error('No payment URL in response:', paymentData);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'לא התקבל קישור תשלום מהשרת',
+          details: paymentData
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Payment link generated successfully:', paymentUrl);
+
+    // STEP 2C: Return success with payment URL
+    // NOTE: We do NOT create transaction/invoice yet - we wait for webhook callback
     return new Response(
       JSON.stringify({ 
         success: true,
-        transaction_id: transaction.id,
-        invoice_id: invoice.id,
-        invoice_number: invoiceNumber
+        paymentUrl: paymentUrl,
+        message: 'מעביר לתשלום מאובטח...'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -112,7 +186,7 @@ Deno.serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage, details: error }),
+      JSON.stringify({ success: false, error: errorMessage, details: error }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
