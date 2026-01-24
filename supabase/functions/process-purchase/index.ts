@@ -29,7 +29,6 @@ Deno.serve(async (req) => {
     if (!user_id) missingFields.push('user_id');
     if (!school_id) missingFields.push('school_id');
     if (amount === undefined || amount === null) missingFields.push('amount');
-    if (!product_id) missingFields.push('product_id');
 
     if (missingFields.length > 0) {
       console.error('Missing required fields:', missingFields);
@@ -58,7 +57,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'לא הוגדרו פרטי סליקה לבית הספר'
+          error: 'לא הוגדרו פרטי סליקה במערכת'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -71,7 +70,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'פרטי סליקה חסרים - נא לעדכן את הגדרות התשלום'
+          error: 'לא הוגדרו פרטי סליקה במערכת'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -114,21 +113,23 @@ Deno.serve(async (req) => {
     console.log('Generating payment link...');
 
     // Determine app URL for redirects
-    const appUrl = Deno.env.get('APP_URL') || 'https://aqua-ivrit-flow.lovable.app';
+    const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
+    const functionsUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
 
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
-      amount: amount,
+      amount: Number(amount),
       currency: 'ILS',
       maxPayments: 1,
-      successUrl: `${appUrl}/dashboard?payment=success`,
-      failureUrl: `${appUrl}/billing?payment=failed`,
+      successUrl: `${siteUrl}/dashboard?payment=success`,
+      failureUrl: `${siteUrl}/billing?payment=failed`,
       client: {
-        name: `User ID ${user_id}`,
+        name: `User ${user_id}`,
       },
+      notifyUrl: `${functionsUrl}/v1/payment-webhook`,
     };
 
-    console.log('Payment request body:', paymentRequestBody);
+    console.log('Payment request body:', JSON.stringify(paymentRequestBody));
 
     const paymentResponse = await fetch('https://api.morning.co/v2/clearing/general/request', {
       method: 'POST',
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
     }
 
     // Extract payment URL from Morning response
-    const paymentUrl = paymentData.url || paymentData.paymentUrl;
+    const paymentUrl = paymentData.url || paymentData.paymentUrl || paymentData.data?.url;
 
     if (!paymentUrl) {
       console.error('No payment URL in response:', paymentData);
@@ -170,19 +171,18 @@ Deno.serve(async (req) => {
 
     console.log('Payment link generated successfully:', paymentUrl);
 
-    // STEP 2C: Return success with payment URL
+    // Return success with payment URL
     // NOTE: We do NOT create transaction/invoice yet - we wait for webhook callback
     return new Response(
       JSON.stringify({ 
         success: true,
         paymentUrl: paymentUrl,
-        message: 'מעביר לתשלום מאובטח...'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    // Return RAW error message - DO NOT hide behind generic text
+    // Return RAW error message
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Unexpected error:', error);
     return new Response(

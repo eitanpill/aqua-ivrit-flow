@@ -85,8 +85,7 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
       // Check if we have a payment URL (redirect to Morning payment page)
       if (response.paymentUrl) {
         // Show toast before redirect
-        toast.success("מעביר לתשלום מאובטח...", {
-          description: "תועבר לדף התשלום של Morning",
+        toast.success("מעביר לתשלום מאובטח ב-Morning...", {
           icon: <ExternalLink className="h-5 w-5 text-primary" />,
           duration: 2000,
         });
@@ -99,8 +98,8 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
         return;
       }
 
-      // Fallback: If no payment URL, show success (shouldn't happen with Morning integration)
-      toast.success(response.message || "הרכישה הושלמה בהצלחה!");
+      // Fallback: If no payment URL, show success
+      toast.success("הרכישה הושלמה בהצלחה!");
 
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
