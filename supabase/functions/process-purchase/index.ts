@@ -5,6 +5,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Green Invoice (Morning) API base URLs
+const GREENINVOICE_API_URL = 'https://api.greeninvoice.co.il/api/v1';
+// For sandbox testing: 'https://sandbox.d.greeninvoice.co.il/api/v1'
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -76,12 +80,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Payment credentials found, proceeding to Morning API...');
+    console.log('Payment credentials found, proceeding to Green Invoice API...');
 
-    // STEP 2A: Get Token from Morning API
-    console.log('Requesting token from Morning API...');
+    // STEP 2A: Get Token from Green Invoice API
+    console.log('Requesting token from Green Invoice API...');
     
-    const tokenResponse = await fetch('https://api.morning.co/v2/users/token', {
+    const tokenResponse = await fetch(`${GREENINVOICE_API_URL}/account/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -93,69 +97,76 @@ Deno.serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
+    console.log('Token response status:', tokenResponse.status);
 
     if (!tokenResponse.ok || !tokenData.token) {
-      console.error('Morning token error:', tokenData);
+      console.error('Green Invoice token error:', tokenData);
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'שגיאה בהתחברות לשירות הסליקה',
+          error: tokenData.errorMessage || 'שגיאה בהתחברות לשירות הסליקה',
+          errorCode: tokenData.errorCode,
           details: tokenData
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const morningToken = tokenData.token;
-    console.log('Morning token obtained successfully');
+    const greenInvoiceToken = tokenData.token;
+    console.log('Green Invoice token obtained successfully');
 
-    // STEP 2B: Generate Payment Link
+    // STEP 2B: Generate Payment Link using Payment Form endpoint
     console.log('Generating payment link...');
 
     // Determine app URL for redirects
     const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
-    const functionsUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+    const functionsUrl = `${supabaseUrl}/functions/v1`;
 
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
-      amount: Number(amount),
+      type: 320, // Payment form type
+      sum: Number(amount),
       currency: 'ILS',
       maxPayments: 1,
+      pluginId: product_id || 'aquaflow-purchase',
       successUrl: `${siteUrl}/dashboard?payment=success`,
       failureUrl: `${siteUrl}/billing?payment=failed`,
+      notifyUrl: `${functionsUrl}/payment-webhook`,
       client: {
-        name: `User ${user_id}`,
+        name: `משתמש ${user_id.substring(0, 8)}`,
+        add: false,
       },
-      notifyUrl: `${functionsUrl}/v1/payment-webhook`,
     };
 
     console.log('Payment request body:', JSON.stringify(paymentRequestBody));
 
-    const paymentResponse = await fetch('https://api.morning.co/v2/clearing/general/request', {
+    const paymentResponse = await fetch(`${GREENINVOICE_API_URL}/payments/form`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${morningToken}`,
+        'Authorization': `Bearer ${greenInvoiceToken}`,
       },
       body: JSON.stringify(paymentRequestBody),
     });
 
     const paymentData = await paymentResponse.json();
+    console.log('Payment response status:', paymentResponse.status);
 
     if (!paymentResponse.ok) {
-      console.error('Morning payment link error:', paymentData);
+      console.error('Green Invoice payment form error:', paymentData);
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'שגיאה ביצירת קישור תשלום',
+          error: paymentData.errorMessage || 'שגיאה ביצירת קישור תשלום',
+          errorCode: paymentData.errorCode,
           details: paymentData
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extract payment URL from Morning response
-    const paymentUrl = paymentData.url || paymentData.paymentUrl || paymentData.data?.url;
+    // Extract payment URL from Green Invoice response
+    const paymentUrl = paymentData.url;
 
     if (!paymentUrl) {
       console.error('No payment URL in response:', paymentData);
