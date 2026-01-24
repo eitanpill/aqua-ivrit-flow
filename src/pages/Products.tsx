@@ -4,28 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Plus, Package, Edit, Trash2, CreditCard, Calendar, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdaptiveTable, type AdaptiveColumn, type AdaptiveAction } from "@/components/ui/adaptive-table";
+import { ProductModal } from "@/components/products/ProductModal";
 
 type ProductType = "subscription" | "punch_card" | "single_session" | "trial";
 
@@ -58,16 +41,8 @@ export default function Products() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { activeSchoolId } = useSchool();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    type: "subscription" as ProductType,
-    price: "",
-    credits_amount: "",
-    duration_days: "",
-    active: true,
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -78,41 +53,6 @@ export default function Products() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as Product[];
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (newProduct: {
-      name: string;
-      description: string;
-      type: ProductType;
-      price: number;
-      credits_amount: number | null;
-      duration_days: number | null;
-      active: boolean;
-    }) => {
-      const { error } = await supabase.from("products" as any).insert([{
-        ...newProduct,
-        school_id: activeSchoolId,
-      }]);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      setIsDialogOpen(false);
-      setForm({
-        name: "",
-        description: "",
-        type: "subscription",
-        price: "",
-        credits_amount: "",
-        duration_days: "",
-        active: true,
-      });
-      toast({ title: "המוצר נוסף בהצלחה" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "שגיאה", description: error.message, variant: "destructive" });
     },
   });
 
@@ -147,35 +87,14 @@ export default function Products() {
     },
   });
 
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("products" as any).update({ active }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-    },
-  });
+  const handleOpenCreate = () => {
+    setEditingProduct(null);
+    setIsModalOpen(true);
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) {
-      toast({ title: "שגיאה", description: "שם המוצר הוא שדה חובה", variant: "destructive" });
-      return;
-    }
-    if (!form.price || parseFloat(form.price) < 0) {
-      toast({ title: "שגיאה", description: "יש להזין מחיר תקין", variant: "destructive" });
-      return;
-    }
-    createMutation.mutate({
-      name: form.name,
-      description: form.description,
-      type: form.type,
-      price: parseFloat(form.price),
-      credits_amount: form.credits_amount ? parseInt(form.credits_amount) : null,
-      duration_days: form.duration_days ? parseInt(form.duration_days) : null,
-      active: form.active,
-    });
+  const handleOpenEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
   };
 
   const formatPrice = (price: number) => {
@@ -247,9 +166,7 @@ export default function Products() {
     {
       label: "ערוך",
       icon: Edit,
-      onClick: () => {
-        // Edit functionality placeholder
-      },
+      onClick: (product) => handleOpenEdit(product),
     },
     {
       label: "מחק",
@@ -266,115 +183,18 @@ export default function Products() {
           <h1 className="text-3xl font-bold text-foreground">ניהול מוצרים</h1>
           <p className="text-muted-foreground mt-1">מוצרים ומחירון</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary gap-2">
-              <Plus className="h-4 w-4" />
-              הוסף מוצר
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>הוספת מוצר חדש</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="product-name">שם המוצר *</Label>
-                <Input
-                  id="product-name"
-                  placeholder='לדוגמה: "מנוי חודשי"'
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-desc">תיאור</Label>
-                <Textarea
-                  id="product-desc"
-                  placeholder="תיאור המוצר"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>סוג המוצר</Label>
-                  <Select
-                    value={form.type}
-                    onValueChange={(value: ProductType) => setForm({ ...form, type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="subscription">מנוי</SelectItem>
-                      <SelectItem value="punch_card">כרטיסייה</SelectItem>
-                      <SelectItem value="single_session">שיעור בודד</SelectItem>
-                      <SelectItem value="trial">שיעור ניסיון</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="product-price">מחיר (₪) *</Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    dir="ltr"
-                    className="text-left"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="product-credits">מספר ניקובים/כניסות</Label>
-                  <Input
-                    id="product-credits"
-                    type="number"
-                    min="1"
-                    placeholder='לדוגמה: 10'
-                    value={form.credits_amount}
-                    onChange={(e) => setForm({ ...form, credits_amount: e.target.value })}
-                    dir="ltr"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="product-duration">תוקף (ימים)</Label>
-                  <Input
-                    id="product-duration"
-                    type="number"
-                    min="1"
-                    placeholder='לדוגמה: 30'
-                    value={form.duration_days}
-                    onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
-                    dir="ltr"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  id="product-active"
-                  checked={form.active}
-                  onCheckedChange={(checked) => setForm({ ...form, active: checked })}
-                />
-                <Label htmlFor="product-active">מוצר פעיל (זמין למכירה)</Label>
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" className="flex-1 gradient-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "מוסיף..." : "הוסף"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  ביטול
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button className="gradient-primary gap-2" onClick={handleOpenCreate}>
+          <Plus className="h-4 w-4" />
+          הוסף מוצר
+        </Button>
       </div>
+
+      {/* Product Modal for Create/Edit */}
+      <ProductModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        product={editingProduct}
+      />
 
       {/* Product Stats */}
       <div className="grid gap-4 md:grid-cols-4">
