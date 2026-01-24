@@ -553,6 +553,7 @@ export type Database = {
           id: string
           invoice_number: string
           issued_at: string
+          school_id: string | null
           transaction_id: string | null
           url: string | null
           user_id: string
@@ -563,6 +564,7 @@ export type Database = {
           id?: string
           invoice_number: string
           issued_at?: string
+          school_id?: string | null
           transaction_id?: string | null
           url?: string | null
           user_id: string
@@ -573,11 +575,19 @@ export type Database = {
           id?: string
           invoice_number?: string
           issued_at?: string
+          school_id?: string | null
           transaction_id?: string | null
           url?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_transaction_id_fkey"
             columns: ["transaction_id"]
@@ -1733,7 +1743,9 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          payment_method: string | null
           reference_id: string | null
+          school_id: string | null
           status: string
           type: string
           user_id: string
@@ -1743,7 +1755,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          payment_method?: string | null
           reference_id?: string | null
+          school_id?: string | null
           status?: string
           type: string
           user_id: string
@@ -1753,12 +1767,22 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          payment_method?: string | null
           reference_id?: string | null
+          school_id?: string | null
           status?: string
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
