@@ -105,10 +105,16 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
     mutationFn: async (productId: string): Promise<PurchaseResponse> => {
       if (!user) throw new Error("משתמש לא מחובר");
 
+      // Find the selected product to get its details
+      const selectedProductData = products?.find(p => p.id === productId);
+      if (!selectedProductData) throw new Error("מוצר לא נמצא");
+
       const { data, error } = await supabase.functions.invoke('process-purchase', {
         body: {
+          user_id: user.id,
+          school_id: selectedProductData.school_id,
+          amount: selectedProductData.price,
           product_id: productId,
-          swimmer_id: swimmerId,
         },
       });
 
