@@ -2,32 +2,64 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useDemoMode } from "@/hooks/useDemoMode";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  AdaptiveModal,
+  AdaptiveModalContent,
+  AdaptiveModalHeader,
+  AdaptiveModalTitle,
+  AdaptiveModalDescription,
+  AdaptiveModalFooter,
+} from "@/components/ui/adaptive-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CreditCard, Package, Sparkles, Check } from "lucide-react";
+import { CreditCard, Package, Sparkles, Check, CheckCircle2 } from "lucide-react";
+import confetti from "canvas-confetti";
 
 interface PurchaseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  swimmerId?: string;
 }
 
-const PurchaseModal = ({ open, onOpenChange }: PurchaseModalProps) => {
+interface PurchaseResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: {
+    transaction_id: string;
+    transaction_ref: string;
+    invoice_number: string | null;
+    product: {
+      id: string;
+      name: string;
+      type: string;
+      price: number;
+    };
+    subscription: {
+      id: string;
+      status: string;
+      start_date: string;
+      end_date: string | null;
+    } | null;
+    wallet: {
+      credits_added: number;
+      new_balance: number;
+    } | null;
+  };
+}
+
+const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) => {
   const { user } = useAuth();
+  const { isDemoMode, blockDemoAction } = useDemoMode();
   const queryClient = useQueryClient();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   // Fetch available products
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", "active"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -38,45 +70,98 @@ const PurchaseModal = ({ open, onOpenChange }: PurchaseModalProps) => {
       if (error) throw error;
       return data;
     },
+    enabled: open,
   });
 
-  // Mock purchase mutation (will be replaced with actual payment later)
-  const purchaseMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      const product = products?.find((p) => p.id === productId);
-      if (!product || !user) throw new Error("מוצר או משתמש לא נמצאו");
+  // Trigger confetti celebration
+  const triggerConfetti = () => {
+    const end = Date.now() + 2000;
+    const colors = ['#22c55e', '#3b82f6', '#8b5cf6'];
 
-      // Create transaction record
-      const { error: transactionError } = await (supabase
-        .from("transactions" as any)
-        .insert({
-          user_id: user.id,
-          amount: product.price,
-          type: "credit_purchase",
-          status: "pending",
-          description: `רכישת ${product.name}`,
-        }) as any);
-
-      if (transactionError) throw transactionError;
-
-      // Note: In production, this would redirect to payment gateway
-      // For now, we just show a message
-      return product;
-    },
-    onSuccess: (product) => {
-      toast.success(`רכישת "${product.name}" נרשמה. המתן לאישור תשלום.`, {
-        description: "בקרוב תתווסף אפשרות תשלום מלאה",
+    (function frame() {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.7 },
+        colors,
       });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.7 },
+        colors,
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    })();
+  };
+
+  // Purchase mutation using edge function
+  const purchaseMutation = useMutation({
+    mutationFn: async (productId: string): Promise<PurchaseResponse> => {
+      if (!user) throw new Error("משתמש לא מחובר");
+
+      const { data, error } = await supabase.functions.invoke('process-purchase', {
+        body: {
+          product_id: productId,
+          swimmer_id: swimmerId,
+        },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'שגיאה בעיבוד הרכישה');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'הרכישה נכשלה');
+      }
+
+      return data as PurchaseResponse;
+    },
+    onSuccess: (response) => {
+      // Trigger celebration
+      triggerConfetti();
+      
+      // Show success toast
+      toast.success(response.message || "הרכישה הושלמה בהצלחה!", {
+        description: response.data?.invoice_number 
+          ? `מספר חשבונית: ${response.data.invoice_number}`
+          : undefined,
+        icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+        duration: 5000,
+      });
+
+      // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+
+      // Close modal and reset selection
       onOpenChange(false);
       setSelectedProduct(null);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error("שגיאה ברכישה", {
         description: error.message,
       });
     },
   });
+
+  const handlePurchase = () => {
+    if (isDemoMode) {
+      blockDemoAction("רכישה");
+      return;
+    }
+    if (selectedProduct) {
+      purchaseMutation.mutate(selectedProduct);
+    }
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("he-IL", {
@@ -102,20 +187,24 @@ const PurchaseModal = ({ open, onOpenChange }: PurchaseModalProps) => {
         return "מנוי";
       case "punch_card":
         return "כרטיסייה";
+      case "single_session":
+        return "שיעור בודד";
+      case "trial":
+        return "שיעור ניסיון";
       default:
         return type;
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-xl">רכישת קרדיטים</DialogTitle>
-          <DialogDescription>
+    <AdaptiveModal open={open} onOpenChange={onOpenChange}>
+      <AdaptiveModalContent className="max-w-2xl">
+        <AdaptiveModalHeader>
+          <AdaptiveModalTitle className="text-xl">רכישת קרדיטים</AdaptiveModalTitle>
+          <AdaptiveModalDescription>
             בחר את החבילה המתאימה לך
-          </DialogDescription>
-        </DialogHeader>
+          </AdaptiveModalDescription>
+        </AdaptiveModalHeader>
 
         <div className="space-y-4 py-4">
           {isLoading ? (
@@ -185,29 +274,34 @@ const PurchaseModal = ({ open, onOpenChange }: PurchaseModalProps) => {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <AdaptiveModalFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
             ביטול
           </Button>
           <Button
             disabled={!selectedProduct || purchaseMutation.isPending}
-            onClick={() => selectedProduct && purchaseMutation.mutate(selectedProduct)}
+            onClick={handlePurchase}
+            className="w-full sm:w-auto gradient-primary"
           >
             {purchaseMutation.isPending ? (
               <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
-                מעבד...
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ml-2" />
+                מעבד תשלום...
               </>
             ) : (
               <>
-                <CreditCard className="h-4 w-4 mr-2" />
-                המשך לתשלום
+                <CreditCard className="h-4 w-4 ml-2" />
+                שלם עכשיו
               </>
             )}
           </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </AdaptiveModalFooter>
+      </AdaptiveModalContent>
+    </AdaptiveModal>
   );
 };
 
