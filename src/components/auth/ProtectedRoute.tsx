@@ -1,5 +1,7 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -7,8 +9,30 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
-  if (loading) {
+  // Check if user has a school_id in their profile
+  const { data: profileData, isLoading: profileLoading } = useQuery({
+    queryKey: ["user-profile-school-check", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("school_id, role")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 1000 * 30, // Cache for 30 seconds
+  });
+
+  if (loading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -21,6 +45,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // If user has no school_id and is not on the setup page, redirect to setup
+  const isOnSetupPage = location.pathname === "/auth/setup-school";
+  const hasSchool = profileData?.school_id !== null && profileData?.school_id !== undefined;
+
+  if (!hasSchool && !isOnSetupPage && profileData !== undefined) {
+    // User logged in but has no school - redirect to school setup
+    return <Navigate to="/auth/setup-school" replace state={{ from: location }} />;
   }
 
   return <>{children}</>;

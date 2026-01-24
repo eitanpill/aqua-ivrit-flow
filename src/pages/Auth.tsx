@@ -79,21 +79,47 @@ export default function Auth() {
     }
   }, [inviteSlug]);
 
+  // Track if we're in the middle of signup to prevent redirect
+  const [isSigningUp, setIsSigningUp] = useState(false);
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/dashboard");
+    // Don't set up redirect listener if we're in the process of creating a school
+    if (isSigningUp) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session && !isSigningUp) {
+        // Check if user has a school before redirecting
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("school_id")
+          .eq("id", session.user.id)
+          .single();
+        
+        if (profile?.school_id) {
+          navigate("/dashboard");
+        } else {
+          // User exists but has no school - they should be on create-school view
+          // Don't redirect, let ProtectedRoute handle it
+        }
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session && !isSigningUp) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("school_id")
+          .eq("id", session.user.id)
+          .single();
+        
+        if (profile?.school_id) {
+          navigate("/dashboard");
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, isSigningUp]);
 
   const handleDemoLogin = async () => {
     setIsDemoLoading(true);
@@ -140,6 +166,9 @@ export default function Auth() {
           : error.message,
         variant: "destructive",
       });
+    } else {
+      // Login successful - navigate will happen via auth state change
+      navigate("/dashboard");
     }
     setIsLoading(false);
   };
@@ -170,50 +199,56 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const redirectUrl = `${window.location.origin}/`;
+    setIsSigningUp(true); // Prevent automatic redirect during signup
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: signupForm.email,
-      password: signupForm.password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          first_name: signupForm.firstName,
-          last_name: signupForm.lastName,
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: signupForm.email,
+        password: signupForm.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            first_name: signupForm.firstName,
+            last_name: signupForm.lastName,
+          },
         },
-      },
-    });
-
-    if (authError) {
-      toast({
-        title: "שגיאת הרשמה",
-        description: authError.message === "User already registered"
-          ? "משתמש עם אימייל זה כבר קיים במערכת"
-          : authError.message,
-        variant: "destructive",
       });
-      setIsLoading(false);
-      return;
-    }
 
-    if (!authData.user) {
-      toast({
-        title: "שגיאה",
-        description: "אירעה שגיאה ביצירת המשתמש",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
+      if (authError) {
+        toast({
+          title: "שגיאת הרשמה",
+          description: authError.message === "User already registered"
+            ? "משתמש עם אימייל זה כבר קיים במערכת"
+            : authError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        setIsSigningUp(false);
+        return;
+      }
 
-    setTimeout(async () => {
+      if (!authData.user) {
+        toast({
+          title: "שגיאה",
+          description: "אירעה שגיאה ביצירת המשתמש",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        setIsSigningUp(false);
+        return;
+      }
+
+      // Wait a moment for session to be established
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       if (isCreatingSchool) {
+        // Use the new RPC that gets auth.uid() internally
         const { data: schoolResult, error: schoolError } = await supabase.rpc(
-          'create_school_for_owner',
+          'create_school_and_owner',
           {
-            p_user_id: authData.user!.id,
             p_school_name: signupForm.schoolName,
-            p_email: signupForm.email,
+            p_owner_first_name: signupForm.firstName,
+            p_owner_last_name: signupForm.lastName,
           }
         );
 
@@ -224,11 +259,14 @@ export default function Auth() {
             description: (schoolResult as any)?.error || schoolError?.message || "נסה שוב",
             variant: "destructive",
           });
+          // Even if school creation fails, user is created - redirect to setup page
+          navigate("/auth/setup-school", { replace: true });
         } else {
           toast({
-            title: "נרשמת בהצלחה!",
+            title: "נרשמת בהצלחה! 🎉",
             description: `בית הספר "${signupForm.schoolName}" נוצר בהצלחה`,
           });
+          navigate("/dashboard", { replace: true });
         }
       } else if (inviteSlug) {
         const { data: joinResult, error: joinError } = await supabase.rpc(
@@ -251,10 +289,20 @@ export default function Auth() {
             title: "נרשמת בהצלחה!",
             description: `הצטרפת לבית הספר "${(joinResult as any).school_name}"`,
           });
+          navigate("/dashboard", { replace: true });
         }
       }
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      toast({
+        title: "שגיאה",
+        description: error.message || "אירעה שגיאה בתהליך ההרשמה",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 100);
+      setIsSigningUp(false);
+    }
   };
 
   if (isLoadingSchool) {

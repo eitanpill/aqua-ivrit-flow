@@ -2007,6 +2007,14 @@ export type Database = {
         }
         Returns: Json
       }
+      create_school_and_owner: {
+        Args: {
+          p_owner_first_name: string
+          p_owner_last_name: string
+          p_school_name: string
+        }
+        Returns: Json
+      }
       create_school_for_owner: {
         Args: {
           p_email?: string
