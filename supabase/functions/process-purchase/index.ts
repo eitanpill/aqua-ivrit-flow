@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
         user_id,
         school_id,
         amount,
-        type: 'purchase',
+        type: 'credit_purchase',
         status: 'completed',
         payment_method: 'manual',
         description: `Purchase of product ${product_id}`,
