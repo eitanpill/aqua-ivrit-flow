@@ -176,23 +176,14 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const isCreatingSchool = authView === 'create-school';
-    const schema = isCreatingSchool ? schoolOwnerSchema : signupSchema;
+    // For create-school flow, we only need basic signup - school creation happens on Welcome page
+    const schema = signupSchema;
     const result = schema.safeParse(signupForm);
     
     if (!result.success) {
       toast({
         title: "שגיאה",
         description: result.error.errors[0].message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!inviteSlug && !isCreatingSchool) {
-      toast({
-        title: "שגיאה",
-        description: "יש להירשם דרך קישור הזמנה או לבחור באפשרות פתיחת בית ספר חדש",
         variant: "destructive",
       });
       return;
@@ -206,7 +197,7 @@ export default function Auth() {
         email: signupForm.email,
         password: signupForm.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/welcome`,
           data: {
             first_name: signupForm.firstName,
             last_name: signupForm.lastName,
@@ -241,34 +232,8 @@ export default function Auth() {
       // Wait a moment for session to be established
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (isCreatingSchool) {
-        // Use the new RPC that gets auth.uid() internally
-        const { data: schoolResult, error: schoolError } = await supabase.rpc(
-          'create_school_and_owner',
-          {
-            p_school_name: signupForm.schoolName,
-            p_owner_first_name: signupForm.firstName,
-            p_owner_last_name: signupForm.lastName,
-          }
-        );
-
-        if (schoolError || !(schoolResult as any)?.success) {
-          console.error('School creation error:', schoolError || schoolResult);
-          toast({
-            title: "שגיאה ביצירת בית הספר",
-            description: (schoolResult as any)?.error || schoolError?.message || "נסה שוב",
-            variant: "destructive",
-          });
-          // Even if school creation fails, user is created - redirect to setup page
-          navigate("/auth/setup-school", { replace: true });
-        } else {
-          toast({
-            title: "נרשמת בהצלחה! 🎉",
-            description: `בית הספר "${signupForm.schoolName}" נוצר בהצלחה`,
-          });
-          navigate("/dashboard", { replace: true });
-        }
-      } else if (inviteSlug) {
+      // If joining via invite link, handle that flow
+      if (inviteSlug) {
         const { data: joinResult, error: joinError } = await supabase.rpc(
           'join_school_by_slug',
           {
@@ -290,8 +255,17 @@ export default function Auth() {
             description: `הצטרפת לבית הספר "${(joinResult as any).school_name}"`,
           });
           navigate("/dashboard", { replace: true });
+          return;
         }
       }
+
+      // For regular signup (create-school flow), redirect to Welcome page
+      toast({
+        title: "נרשמת בהצלחה! 🎉",
+        description: "בואו נגדיר את החשבון שלך",
+      });
+      navigate("/welcome", { replace: true });
+      
     } catch (error: any) {
       console.error('Signup error:', error);
       toast({
@@ -544,36 +518,19 @@ export default function Auth() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">
-              {invitedSchool ? "הצטרפות לבית ספר" : "הקמת בית ספר חדש"}
+              {invitedSchool ? "הצטרפות לבית ספר" : "הרשמה ל-AquaFlow"}
             </CardTitle>
             {invitedSchool ? (
               <CardDescription>
                 הצטרפות לבית הספר: <span className="font-semibold text-foreground">{invitedSchool.name}</span>
               </CardDescription>
             ) : (
-              <CardDescription>צור את בית הספר שלך והתחל לנהל</CardDescription>
+              <CardDescription>צור חשבון והתחל לנהל את בית הספר שלך</CardDescription>
             )}
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* School name input - only when creating school */}
-            {authView === 'create-school' && !invitedSchool && (
-              <div className="space-y-2">
-                <Label htmlFor="signup-schoolname">שם בית הספר</Label>
-                <div className="relative">
-                  <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="signup-schoolname"
-                    type="text"
-                    placeholder="בית ספר לשחייה"
-                    className="pr-10"
-                    value={signupForm.schoolName}
-                    onChange={(e) => setSignupForm({ ...signupForm, schoolName: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -637,7 +594,7 @@ export default function Auth() {
               className="w-full gradient-primary" 
               disabled={isLoading}
             >
-              {isLoading ? "נרשם..." : invitedSchool ? "הצטרף לבית הספר" : "צור בית ספר והירשם"}
+              {isLoading ? "נרשם..." : invitedSchool ? "הצטרף לבית הספר" : "הירשם והמשך"}
             </Button>
           </form>
           
