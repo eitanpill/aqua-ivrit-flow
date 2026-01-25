@@ -136,9 +136,21 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
       blockDemoAction("רכישה");
       return;
     }
-    if (selectedProduct) {
-      purchaseMutation.mutate(selectedProduct);
+    if (!selectedProduct) return;
+
+    const product = products?.find(p => p.id === selectedProduct);
+    if (!product) return;
+
+    // Check if product has a payment link (hosted payment page strategy)
+    if (product.payment_link) {
+      window.open(product.payment_link, '_blank');
+      onOpenChange(false);
+      setSelectedProduct(null);
+      return;
     }
+
+    // Fallback: No payment link defined
+    toast.error("טרם הוגדר קישור לתשלום עבור מוצר זה");
   };
 
   const formatPrice = (price: number) => {
@@ -261,21 +273,12 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
             ביטול
           </Button>
           <Button
-            disabled={!selectedProduct || purchaseMutation.isPending}
+            disabled={!selectedProduct}
             onClick={handlePurchase}
             className="w-full sm:w-auto gradient-primary"
           >
-            {purchaseMutation.isPending ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ml-2" />
-                מתחבר לסליקה...
-              </>
-            ) : (
-              <>
-                <CreditCard className="h-4 w-4 ml-2" />
-                המשך לתשלום
-              </>
-            )}
+            <ExternalLink className="h-4 w-4 ml-2" />
+            מעבר לתשלום מאובטח
           </Button>
         </AdaptiveModalFooter>
       </AdaptiveModalContent>

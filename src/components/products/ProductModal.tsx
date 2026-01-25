@@ -32,6 +32,7 @@ interface Product {
   price: number;
   credits_amount: number | null;
   duration_days: number | null;
+  payment_link: string | null;
   active: boolean;
 }
 
@@ -54,6 +55,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
     price: "",
     credits_amount: "",
     duration_days: "",
+    payment_link: "",
     active: true,
   });
 
@@ -67,6 +69,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
         price: product.price.toString(),
         credits_amount: product.credits_amount?.toString() || "",
         duration_days: product.duration_days?.toString() || "",
+        payment_link: product.payment_link || "",
         active: product.active,
       });
     } else {
@@ -77,6 +80,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
         price: "",
         credits_amount: "",
         duration_days: "",
+        payment_link: "",
         active: true,
       });
     }
@@ -154,6 +158,7 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
       price: parseFloat(form.price),
       credits_amount: form.credits_amount ? parseInt(form.credits_amount) : null,
       duration_days: form.duration_days ? parseInt(form.duration_days) : null,
+      payment_link: form.payment_link.trim() || null,
       active: form.active,
     };
 
@@ -223,6 +228,18 @@ export function ProductModal({ open, onOpenChange, product }: ProductModalProps)
                 className="text-left"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-payment-link">קישור לדף מכירה (Morning)</Label>
+            <Input
+              id="product-payment-link"
+              type="url"
+              placeholder="https://app.greeninvoice.co.il/..."
+              value={form.payment_link}
+              onChange={(e) => setForm({ ...form, payment_link: e.target.value })}
+              dir="ltr"
+              className="text-left"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

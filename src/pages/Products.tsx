@@ -20,6 +20,7 @@ interface Product {
   price: number;
   credits_amount: number | null;
   duration_days: number | null;
+  payment_link: string | null;
   active: boolean;
 }
 

@@ -841,6 +841,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           name: string
+          payment_link: string | null
           price: number
           school_id: string | null
           type: Database["public"]["Enums"]["product_type"]
@@ -857,6 +858,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           name: string
+          payment_link?: string | null
           price?: number
           school_id?: string | null
           type?: Database["public"]["Enums"]["product_type"]
@@ -873,6 +875,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           name?: string
+          payment_link?: string | null
           price?: number
           school_id?: string | null
           type?: Database["public"]["Enums"]["product_type"]
