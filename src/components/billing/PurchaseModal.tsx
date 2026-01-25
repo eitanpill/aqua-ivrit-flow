@@ -61,13 +61,26 @@ const PurchaseModal = ({ open, onOpenChange, swimmerId }: PurchaseModalProps) =>
       const selectedProductData = products?.find(p => p.id === productId);
       if (!selectedProductData) throw new Error("מוצר לא נמצא");
 
+      // CRITICAL: Explicitly cast and validate the amount before sending
+      const rawPrice = selectedProductData.price;
+      const amount = parseFloat(String(rawPrice));
+      
+      if (isNaN(amount) || amount <= 0) {
+        console.error("❌ Invalid product price detected:", rawPrice);
+        throw new Error(`מחיר המוצר אינו תקין: ${rawPrice}`);
+      }
+
+      const payload = {
+        user_id: user.id,
+        school_id: selectedProductData.school_id,
+        amount: amount, // Guaranteed to be a valid positive number
+        product_id: productId,
+      };
+
+      console.log("🚀 Sending Payload to Edge Function:", payload);
+
       const { data, error } = await supabase.functions.invoke('process-purchase', {
-        body: {
-          user_id: user.id,
-          school_id: selectedProductData.school_id,
-          amount: selectedProductData.price,
-          product_id: productId,
-        },
+        body: payload,
       });
 
       if (error) {

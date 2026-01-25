@@ -26,22 +26,26 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { user_id, school_id, amount, product_id } = body;
 
-    // CRITICAL: Explicitly convert amount to a float
-    const finalAmount = parseFloat(amount);
-    console.log('Processing Payment:', { original: amount, parsed: finalAmount, user_id, school_id, product_id });
+    console.log("📥 Edge Function Received:", { amount, type: typeof amount, user_id, school_id, product_id });
 
-    // Validate amount before proceeding
+    // STEP 0: Rigorous Amount Validation
+    // 1. FORCE PARSE FLOAT - handle string, number, or any other type
+    const finalAmount = parseFloat(String(amount));
+    
+    // 2. VALIDATION - must be a positive number
     if (isNaN(finalAmount) || finalAmount <= 0) {
-      console.error('Invalid amount received:', amount);
+      console.error("❌ Invalid Amount Detected:", { original: amount, parsed: finalAmount });
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'סכום לא תקין: ' + amount,
-          details: { original: amount, parsed: finalAmount }
+          error: `סכום לתשלום לא תקין: ${amount}`,
+          details: { original: amount, parsed: finalAmount, type: typeof amount }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log("✅ Amount validated:", finalAmount);
 
     // Validation: Check for required fields
     const missingFields: string[] = [];
@@ -138,18 +142,17 @@ Deno.serve(async (req) => {
     const functionsUrl = `${supabaseUrl}/functions/v1`;
 
     // Morning (GreenInvoice) "Get Payment Form" endpoint expects:
-    // - amount (NOT sum), in shekels
+    // - amount in Shekels (NOT Agorot)
     // - required: lang, vatType
-    // Ref: https://greeninvoice.docs.apiary.io/reference/payments/get-payment-form/get-payment-form
+    // NOTE: Removed pluginId as it was causing 404 errors - let API use default
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
       type: 320, // Payment form type
       lang: 'he',
       currency: 'ILS',
       vatType: 0,
-      amount: finalAmount,
+      amount: finalAmount, // Send raw number in Shekels (e.g., 150.5)
       maxPayments: 1,
-      pluginId: product_id || 'aquaflow-purchase',
       successUrl: `${siteUrl}/dashboard?payment=success`,
       failureUrl: `${siteUrl}/billing?payment=failed`,
       notifyUrl: `${functionsUrl}/payment-webhook`,
@@ -159,7 +162,7 @@ Deno.serve(async (req) => {
       },
     };
 
-    console.log('Payment request body:', JSON.stringify(paymentRequestBody));
+    console.log("📤 Sending to Morning:", JSON.stringify(paymentRequestBody));
 
     const paymentResponse = await fetch(`${GREENINVOICE_API_URL}/payments/form`, {
       method: 'POST',
@@ -171,7 +174,7 @@ Deno.serve(async (req) => {
     });
 
     const paymentData = await paymentResponse.json();
-    console.log('Payment response status:', paymentResponse.status);
+    console.log('Payment response status:', paymentResponse.status, 'data:', JSON.stringify(paymentData));
 
     if (!paymentResponse.ok) {
       console.error('Green Invoice payment form error:', paymentData);
