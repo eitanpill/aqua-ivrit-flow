@@ -47,13 +47,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // If user has no school_id and is not on the setup page, redirect to setup
-  const isOnSetupPage = location.pathname === "/auth/setup-school";
+  // If user has no school_id and is not on allowed pages, redirect to welcome
+  const allowedPaths = ["/auth/setup-school", "/welcome"];
+  const isOnAllowedPage = allowedPaths.includes(location.pathname);
+  const isDemoMode = location.search.includes("demo=true");
   const hasSchool = profileData?.school_id !== null && profileData?.school_id !== undefined;
 
-  if (!hasSchool && !isOnSetupPage && profileData !== undefined) {
-    // User logged in but has no school - redirect to school setup
-    return <Navigate to="/auth/setup-school" replace state={{ from: location }} />;
+  if (!hasSchool && !isOnAllowedPage && !isDemoMode && profileData !== undefined) {
+    // User logged in but has no school - redirect to welcome page
+    return <Navigate to="/welcome" replace state={{ from: location }} />;
   }
 
   return <>{children}</>;
