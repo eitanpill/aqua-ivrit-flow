@@ -26,7 +26,22 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { user_id, school_id, amount, product_id } = body;
 
-    console.log('Received purchase request:', { user_id, school_id, amount, product_id });
+    // CRITICAL: Explicitly convert amount to a float
+    const finalAmount = parseFloat(amount);
+    console.log('Processing Payment:', { original: amount, parsed: finalAmount, user_id, school_id, product_id });
+
+    // Validate amount before proceeding
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      console.error('Invalid amount received:', amount);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'סכום לא תקין: ' + amount,
+          details: { original: amount, parsed: finalAmount }
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Validation: Check for required fields
     const missingFields: string[] = [];
@@ -122,15 +137,12 @@ Deno.serve(async (req) => {
     const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
     const functionsUrl = `${supabaseUrl}/functions/v1`;
 
-    // Green Invoice API expects amount in agorot (1/100 shekel)
-    // Minimum amount is 1 shekel (100 agorot)
-    const amountInShekels = Math.max(1, Number(amount));
-    const amountInAgorot = Math.round(amountInShekels * 100);
-
+    // Morning API V2 expects amount in Shekels (NOT agorot)
+    // Use the validated finalAmount directly
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
       type: 320, // Payment form type
-      sum: amountInAgorot,
+      sum: finalAmount,
       currency: 'ILS',
       maxPayments: 1,
       pluginId: product_id || 'aquaflow-purchase',
