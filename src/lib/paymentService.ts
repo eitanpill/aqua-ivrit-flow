@@ -8,6 +8,7 @@ export interface PaymentConfig {
   api_key_masked: string;
   has_secret: boolean;
   is_active: boolean;
+  plugin_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,7 +129,8 @@ export async function upsertPaymentConfig(
   schoolId: string,
   provider: PaymentProvider,
   apiKey: string,
-  apiSecret?: string
+  apiSecret?: string,
+  pluginId?: string
 ): Promise<{ success: boolean; error?: string }> {
   // First try to update existing
   const { data: existing } = await supabase
@@ -145,6 +147,7 @@ export async function upsertPaymentConfig(
       .update({
         api_key: apiKey,
         api_secret: apiSecret || null,
+        plugin_id: pluginId || null,
         is_active: true,
         updated_at: new Date().toISOString()
       })
@@ -163,6 +166,7 @@ export async function upsertPaymentConfig(
         provider_name: provider,
         api_key: apiKey,
         api_secret: apiSecret || null,
+        plugin_id: pluginId || null,
         is_active: true
       });
 

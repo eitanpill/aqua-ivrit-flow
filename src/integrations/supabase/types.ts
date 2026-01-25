@@ -710,6 +710,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          plugin_id: string | null
           provider_name: Database["public"]["Enums"]["payment_provider"]
           school_id: string
           updated_at: string
@@ -720,6 +721,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          plugin_id?: string | null
           provider_name: Database["public"]["Enums"]["payment_provider"]
           school_id: string
           updated_at?: string
@@ -730,6 +732,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          plugin_id?: string | null
           provider_name?: Database["public"]["Enums"]["payment_provider"]
           school_id?: string
           updated_at?: string
@@ -2078,6 +2081,7 @@ export type Database = {
           has_secret: boolean
           id: string
           is_active: boolean
+          plugin_id: string
           provider_name: Database["public"]["Enums"]["payment_provider"]
           school_id: string
           updated_at: string
@@ -2165,6 +2169,7 @@ export type Database = {
           p_api_key: string
           p_api_secret?: string
           p_is_active?: boolean
+          p_plugin_id?: string
           p_provider_name: Database["public"]["Enums"]["payment_provider"]
           p_school_id: string
         }

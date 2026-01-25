@@ -48,6 +48,7 @@ export function PaymentSettings() {
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('stripe');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
+  const [pluginId, setPluginId] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -106,7 +107,8 @@ export function PaymentSettings() {
         schoolId,
         selectedProvider,
         apiKey.trim(),
-        apiSecret.trim() || undefined
+        apiSecret.trim() || undefined,
+        pluginId.trim() || undefined
       );
 
       if (result.success) {
@@ -118,6 +120,7 @@ export function PaymentSettings() {
         setShowForm(false);
         setApiKey('');
         setApiSecret('');
+        setPluginId('');
       } else {
         throw new Error(result.error);
       }
@@ -335,6 +338,21 @@ export function PaymentSettings() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="pluginId">מזהה מסוף סליקה (Plugin ID) - נדרש ל-Morning</Label>
+              <Input
+                id="pluginId"
+                type="text"
+                value={pluginId}
+                onChange={(e) => setPluginId(e.target.value)}
+                placeholder="7944827a-c664-11e4-8231-..."
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                ניתן לקבל מזהה זה מחשבון ה-Morning שלך בהגדרות מסוף הסליקה
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <Button type="submit" disabled={isSaving}>
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin me-2" />}
@@ -347,6 +365,7 @@ export function PaymentSettings() {
                   setShowForm(false);
                   setApiKey('');
                   setApiSecret('');
+                  setPluginId('');
                 }}
               >
                 ביטול
