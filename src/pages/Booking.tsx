@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchool } from '@/contexts/SchoolContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,7 @@ const STEPS = [
 
 export default function Booking() {
   const { user } = useAuth();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
@@ -58,37 +60,51 @@ export default function Booking() {
     enabled: !!user?.id,
   });
 
-  // Fetch locations
+  // Fetch locations - filtered by school_id
   const { data: locations = [] } = useQuery({
-    queryKey: ['locations'],
+    queryKey: ['locations', activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('locations')
         .select('*')
         .order('name');
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
-  // Fetch class levels
+  // Fetch class levels - filtered by school_id
   const { data: levels = [] } = useQuery({
-    queryKey: ['class-levels'],
+    queryKey: ['class-levels', activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('class_levels')
         .select('*')
         .order('sort_order');
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
-  // Fetch available sessions
+  // Fetch available sessions - filtered by school_id
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
-    queryKey: ['available-sessions', selectedLocation, selectedLevel],
+    queryKey: ['available-sessions', activeSchoolId, selectedLocation, selectedLevel],
     queryFn: async () => {
       const now = new Date();
       const nextWeek = addDays(now, 14);
@@ -106,13 +122,18 @@ export default function Booking() {
         .gte('start_time', now.toISOString())
         .lte('start_time', nextWeek.toISOString())
         .order('start_time');
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
 
       const { data, error } = await (query as any);
 
       if (error) throw error;
       return data || [];
     },
-    enabled: currentStep >= 3 && !!selectedLocation,
+    enabled: currentStep >= 3 && !!selectedLocation && !!activeSchoolId && !isLoadingSchool,
   });
 
   // Filter sessions based on location and level (include full sessions for waitlist)

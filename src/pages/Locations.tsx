@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,19 +28,29 @@ interface Location {
 export default function Locations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
 
   const { data: locations, isLoading } = useQuery({
-    queryKey: ["locations"],
+    queryKey: ["locations", activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("locations")
         .select("*")
         .order("created_at", { ascending: false });
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Location[];
     },
+    // Disable query until we have a valid school ID
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   const deleteMutation = useMutation({
@@ -48,7 +59,7 @@ export default function Locations() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      queryClient.invalidateQueries({ queryKey: ["locations", activeSchoolId] });
       toast({ title: "הבריכה נמחקה בהצלחה" });
     },
     onError: (error: Error) => {
@@ -65,6 +76,15 @@ export default function Locations() {
     setEditingLocation(location);
     setIsModalOpen(true);
   };
+
+  // Show loading while school is being determined
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">טוען...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

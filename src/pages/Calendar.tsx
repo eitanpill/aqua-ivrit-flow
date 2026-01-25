@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, addMinutes } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchool } from '@/contexts/SchoolContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -21,6 +22,7 @@ import { HEBREW_MONTHS } from '@/lib/session-generator';
 export default function Calendar() {
   const queryClient = useQueryClient();
   const { user, isCoach, isAdmin } = useAuth();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedCoach, setSelectedCoach] = useState('all');
@@ -45,9 +47,9 @@ export default function Calendar() {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
 
-  // Fetch sessions for the current week - filtered by coach_id if user is coach
+  // Fetch sessions for the current week - filtered by school_id and coach_id
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
-    queryKey: ['sessions', format(weekStart, 'yyyy-MM-dd'), format(weekEnd, 'yyyy-MM-dd'), isCoach && !isAdmin ? user?.id : null],
+    queryKey: ['sessions', activeSchoolId, format(weekStart, 'yyyy-MM-dd'), format(weekEnd, 'yyyy-MM-dd'), isCoach && !isAdmin ? user?.id : null],
     queryFn: async () => {
       let query = supabase
         .from('sessions' as any)
@@ -61,6 +63,11 @@ export default function Calendar() {
         .lte('start_time', weekEnd.toISOString())
         .order('start_time');
 
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
+
       // Force filter for coaches (non-admins) - they only see their own sessions
       if (isCoach && !isAdmin && user?.id) {
         query = query.eq('coach_id', user.id);
@@ -71,36 +78,51 @@ export default function Calendar() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    // Disable query until we have a valid school ID
+    enabled: !!user && !!activeSchoolId && !isLoadingSchool,
   });
 
-  // Fetch locations for filter
+  // Fetch locations for filter - filtered by school_id
   const { data: locations = [] } = useQuery({
-    queryKey: ['locations'],
+    queryKey: ['locations', activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('locations')
         .select('*')
         .order('name');
 
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
-  // Fetch coaches for filter
+  // Fetch coaches for filter - filtered by school_id
   const { data: coaches = [] } = useQuery({
-    queryKey: ['coaches'],
+    queryKey: ['coaches', activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('*')
         .in('role', ['coach', 'admin'])
         .order('first_name');
 
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq('school_id', activeSchoolId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   // Cancel session mutation
@@ -114,7 +136,7 @@ export default function Calendar() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions', activeSchoolId] });
       toast.success('השיעור בוטל בהצלחה');
     },
     onError: () => {
@@ -133,7 +155,7 @@ export default function Calendar() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions', activeSchoolId] });
       toast.success('ההערות נשמרו בהצלחה');
     },
     onError: () => {
@@ -195,6 +217,15 @@ export default function Calendar() {
   const scheduledCount = filteredSessions.filter((s: any) => s.status === 'scheduled').length;
   const completedCount = filteredSessions.filter((s: any) => s.status === 'completed').length;
   const cancelledCount = filteredSessions.filter((s: any) => s.status === 'cancelled').length;
+
+  // Show loading while school is being determined
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" dir="rtl">
