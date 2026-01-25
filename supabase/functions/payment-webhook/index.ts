@@ -31,13 +31,24 @@ Deno.serve(async (req) => {
     console.log('[payment-webhook] Received payload:', JSON.stringify(payload));
 
     // Extract relevant fields from Morning webhook
-    // Morning sends different field names - we check common variations
-    const email = payload.email || payload.client?.email || payload.customerEmail;
-    const amount = parseFloat(payload.amount || payload.total || payload.sum || '0');
-    const docNumber = payload.docNumber || payload.invoiceNumber || payload.number || '';
+    // Morning sends two webhook types - document webhook and payment-link webhook
+    // Document webhook: recipient.emails[0], payment-link webhook: payer.email
+    const email = 
+      payload.payer?.email || 
+      payload.recipient?.emails?.[0] || 
+      payload.email || 
+      payload.client?.email || 
+      payload.customerEmail;
+    
+    const amount = parseFloat(payload.total || payload.amount || payload.sum || '0');
+    const docNumber = payload.number || payload.docNumber || payload.invoiceNumber || '';
     const transactionId = payload.id || payload.transactionId || payload.paymentId || '';
+    
+    // Extract customer name for logging
+    const customerName = payload.payer?.name || payload.recipient?.name || '';
+    const customerPhone = payload.payer?.phone || payload.recipient?.phone || payload.recipient?.mobile || '';
 
-    console.log('[payment-webhook] Parsed data:', { email, amount, docNumber, transactionId });
+    console.log('[payment-webhook] Parsed data:', { email, amount, docNumber, transactionId, customerName, customerPhone });
 
     if (!email) {
       console.error('[payment-webhook] No email found in payload');
