@@ -137,13 +137,17 @@ Deno.serve(async (req) => {
     const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
     const functionsUrl = `${supabaseUrl}/functions/v1`;
 
-    // Morning API V2 expects amount in Shekels (NOT agorot)
-    // Use the validated finalAmount directly
+    // Morning (GreenInvoice) "Get Payment Form" endpoint expects:
+    // - amount (NOT sum), in shekels
+    // - required: lang, vatType
+    // Ref: https://greeninvoice.docs.apiary.io/reference/payments/get-payment-form/get-payment-form
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
       type: 320, // Payment form type
-      sum: finalAmount,
+      lang: 'he',
       currency: 'ILS',
+      vatType: 0,
+      amount: finalAmount,
       maxPayments: 1,
       pluginId: product_id || 'aquaflow-purchase',
       successUrl: `${siteUrl}/dashboard?payment=success`,
