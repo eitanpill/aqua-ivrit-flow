@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,7 @@ interface ValidationResult {
 
 export default function EnrollmentWizard() {
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSwimmer, setSelectedSwimmer] = useState<Swimmer | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -81,9 +83,18 @@ export default function EnrollmentWizard() {
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState(() => format(new Date(), "yyyy-MM-dd"));
 
-  // Fetch swimmers with parent info
+  // Show loading state
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Fetch swimmers with parent info - filtered by school_id
   const { data: swimmers, isLoading: swimmersLoading } = useQuery({
-    queryKey: ["swimmers-with-parents"],
+    queryKey: ["swimmers-with-parents", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("swimmers")
@@ -91,15 +102,18 @@ export default function EnrollmentWizard() {
           *,
           profiles:parent_id (first_name, last_name, phone)
         `)
+        .eq("school_id", activeSchoolId)
+        .eq("is_deleted", false)
         .order("first_name");
       if (error) throw error;
       return data as Swimmer[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch upcoming sessions with enrollment counts
+  // Fetch upcoming sessions with enrollment counts - filtered by school_id
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ["sessions-with-counts", dateFilter],
+    queryKey: ["sessions-with-counts", activeSchoolId, dateFilter],
     queryFn: async () => {
       const startOfDay = new Date(dateFilter);
       startOfDay.setHours(0, 0, 0, 0);
@@ -113,9 +127,11 @@ export default function EnrollmentWizard() {
           class_types (name, max_participants),
           resources (name)
         `)
+        .eq("school_id", activeSchoolId)
         .gte("start_time", startOfDay.toISOString())
         .lte("start_time", endOfDay.toISOString())
         .eq("status", "scheduled")
+        .eq("is_deleted", false)
         .order("start_time");
       if (error) throw error;
 
@@ -137,11 +153,12 @@ export default function EnrollmentWizard() {
 
       return sessionsWithCounts as Session[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch waitlist entries
+  // Fetch waitlist entries - filtered by school_id
   const { data: waitlistEntries, isLoading: waitlistLoading } = useQuery({
-    queryKey: ["waitlist-entries"],
+    queryKey: ["waitlist-entries", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("waitlist")
@@ -150,11 +167,13 @@ export default function EnrollmentWizard() {
           swimmers (first_name, last_name),
           sessions (start_time, class_types (name))
         `)
+        .eq("school_id", activeSchoolId)
         .in("status", ["waiting", "notified"])
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as unknown as WaitlistEntry[];
     },
+    enabled: !!activeSchoolId,
   });
 
   // Validate enrollment mutation

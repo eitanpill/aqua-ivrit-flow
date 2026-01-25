@@ -46,12 +46,20 @@ export function SchoolSwitcher() {
     navigate('/dashboard');
   };
 
+  const isDemoSchool = activeSchool?.slug?.toLowerCase().includes('demo');
+
   return (
     <div className="flex items-center gap-2">
       <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30">
         <Shield className="h-3 w-3" />
         Super Admin
       </Badge>
+      
+      {isDemoSchool && (
+        <Badge variant="destructive" className="gap-1 animate-pulse">
+          מצב הדגמה
+        </Badge>
+      )}
       
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -76,30 +84,40 @@ export function SchoolSwitcher() {
             <CommandList>
               <CommandEmpty>לא נמצאו בתי ספר</CommandEmpty>
               <CommandGroup heading="בתי ספר">
-                {allSchools.map((school) => (
-                  <CommandItem
-                    key={school.id}
-                    value={school.name}
-                    onSelect={() => handleSchoolSelect(school.id)}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex flex-col">
-                        <span>{school.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {school.slug}
-                        </span>
+                {allSchools.map((school) => {
+                  const isDemo = school.slug?.toLowerCase().includes('demo');
+                  return (
+                    <CommandItem
+                      key={school.id}
+                      value={school.name}
+                      onSelect={() => handleSchoolSelect(school.id)}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span>{school.name}</span>
+                            {isDemo && (
+                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
+                                הדגמה
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {school.slug}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <Check
-                      className={cn(
-                        "h-4 w-4",
-                        activeSchoolId === school.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  </CommandItem>
-                ))}
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          activeSchoolId === school.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>

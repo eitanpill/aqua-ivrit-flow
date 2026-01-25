@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, GraduationCap, CalendarDays, Edit, Trash2, CalendarIcon } from "lucide-react";
+import { Plus, GraduationCap, CalendarDays, Edit, Trash2, CalendarIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
@@ -49,6 +50,7 @@ interface ClassLevel {
 export default function Pedagogy() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
 
   // Seasons state
   const [isSeasonDialogOpen, setIsSeasonDialogOpen] = useState(false);
@@ -67,40 +69,53 @@ export default function Pedagogy() {
     sort_order: 0,
   });
 
-  // Fetch seasons
+  // Fetch seasons - filtered by school_id
   const { data: seasons, isLoading: seasonsLoading } = useQuery({
-    queryKey: ["seasons"],
+    queryKey: ["seasons", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("seasons" as any)
         .select("*")
+        .eq("school_id", activeSchoolId)
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data as unknown as Season[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch class levels
+  // Fetch class levels - filtered by school_id
   const { data: levels, isLoading: levelsLoading } = useQuery({
-    queryKey: ["class_levels"],
+    queryKey: ["class_levels", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_levels" as any)
         .select("*")
+        .eq("school_id", activeSchoolId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data as unknown as ClassLevel[];
     },
+    enabled: !!activeSchoolId,
   });
+
+  // Show loading state
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   // Create season mutation
   const createSeasonMutation = useMutation({
     mutationFn: async (newSeason: { name: string; start_date: string; end_date: string; active: boolean }) => {
-      const { error } = await supabase.from("seasons" as any).insert([newSeason]);
+      const { error } = await supabase.from("seasons" as any).insert([{ ...newSeason, school_id: activeSchoolId }]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["seasons"] });
+      queryClient.invalidateQueries({ queryKey: ["seasons", activeSchoolId] });
       setIsSeasonDialogOpen(false);
       setSeasonForm({ name: "", start_date: undefined, end_date: undefined, active: false });
       toast({ title: "העונה נוספה בהצלחה" });
@@ -117,7 +132,7 @@ export default function Pedagogy() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["seasons"] });
+      queryClient.invalidateQueries({ queryKey: ["seasons", activeSchoolId] });
       toast({ title: "העונה נמחקה בהצלחה" });
     },
   });
@@ -125,11 +140,11 @@ export default function Pedagogy() {
   // Create level mutation
   const createLevelMutation = useMutation({
     mutationFn: async (newLevel: { name: string; description: string; sort_order: number }) => {
-      const { error } = await supabase.from("class_levels" as any).insert([newLevel]);
+      const { error } = await supabase.from("class_levels" as any).insert([{ ...newLevel, school_id: activeSchoolId }]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["class_levels"] });
+      queryClient.invalidateQueries({ queryKey: ["class_levels", activeSchoolId] });
       setIsLevelDialogOpen(false);
       setLevelForm({ name: "", description: "", sort_order: 0 });
       toast({ title: "הרמה נוספה בהצלחה" });
@@ -146,7 +161,7 @@ export default function Pedagogy() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["class_levels"] });
+      queryClient.invalidateQueries({ queryKey: ["class_levels", activeSchoolId] });
       toast({ title: "הרמה נמחקה בהצלחה" });
     },
   });

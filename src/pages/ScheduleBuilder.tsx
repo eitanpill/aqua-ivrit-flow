@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ interface ClassType {
 
 export default function ScheduleBuilder() {
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [isTermDialogOpen, setIsTermDialogOpen] = useState(false);
   const [isSeriesDialogOpen, setIsSeriesDialogOpen] = useState(false);
   
@@ -97,31 +99,34 @@ export default function ScheduleBuilder() {
   const [seriesStartDate, setSeriesStartDate] = useState("");
   const [seriesEndDate, setSeriesEndDate] = useState("");
 
-  // Fetch terms
+  // Fetch terms - filtered by school_id
   const { data: terms, isLoading: termsLoading } = useQuery({
-    queryKey: ["terms"],
+    queryKey: ["terms", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("terms" as unknown as "attendance")
+        .from("terms" as any)
         .select("*")
+        .eq("school_id", activeSchoolId)
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data as unknown as Term[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch schedule series with joins
+  // Fetch schedule series with joins - filtered by school_id
   const { data: seriesList, isLoading: seriesLoading } = useQuery({
-    queryKey: ["schedule_series"],
+    queryKey: ["schedule_series", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("schedule_series" as unknown as "attendance")
+        .from("schedule_series" as any)
         .select(`
           *,
           terms (name),
           class_types (name),
           resources (name)
         `)
+        .eq("school_id", activeSchoolId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       // Transform data to flatten nested objects
@@ -149,51 +154,48 @@ export default function ScheduleBuilder() {
         resource_name: item.resources?.name,
       })) as ScheduleSeries[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch class types
+  // Fetch class types - filtered by school_id
   const { data: classTypes } = useQuery({
-    queryKey: ["class_types"],
+    queryKey: ["class_types", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("class_types")
         .select("id, name")
+        .eq("school_id", activeSchoolId)
         .order("name");
       if (error) throw error;
       return data as ClassType[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch coaches
+  // Fetch coaches - filtered by school_id
   const { data: coaches } = useQuery({
-    queryKey: ["coaches"],
+    queryKey: ["coaches", activeSchoolId],
     queryFn: async () => {
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .in("role", ["coach", "admin"]);
-      if (roleError) throw roleError;
-      
-      if (!roleData?.length) return [];
-      
-      const userIds = roleData.map((r) => r.user_id);
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, first_name, last_name")
-        .in("id", userIds);
+        .eq("school_id", activeSchoolId)
+        .in("role", ["coach", "admin"]);
       if (profilesError) throw profilesError;
       
       return profilesData as Coach[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch resources
+  // Fetch resources - filtered by school_id
   const { data: resources } = useQuery({
-    queryKey: ["resources"],
+    queryKey: ["resources", activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("resources")
         .select("id, name, locations (name)")
+        .eq("school_id", activeSchoolId)
         .order("name");
       if (error) throw error;
       const rawData = data as unknown as Array<{
@@ -207,6 +209,7 @@ export default function ScheduleBuilder() {
         location_name: r.locations?.name,
       })) as Resource[];
     },
+    enabled: !!activeSchoolId,
   });
 
   // Create term mutation
@@ -218,6 +221,7 @@ export default function ScheduleBuilder() {
           name: termName,
           start_date: termStartDate,
           end_date: termEndDate,
+          school_id: activeSchoolId,
         })
         .select()
         .single();
@@ -225,7 +229,7 @@ export default function ScheduleBuilder() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["terms"] });
+      queryClient.invalidateQueries({ queryKey: ["terms", activeSchoolId] });
       toast.success("העונה נוצרה בהצלחה");
       setIsTermDialogOpen(false);
       setTermName("");
@@ -251,6 +255,7 @@ export default function ScheduleBuilder() {
         duration_minutes: parseInt(durationMinutes),
         max_participants: parseInt(maxParticipants),
         recurrence_weeks: parseInt(recurrenceWeeks),
+        school_id: activeSchoolId,
       };
 
       // Use either term OR date range
@@ -271,7 +276,7 @@ export default function ScheduleBuilder() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schedule_series"] });
+      queryClient.invalidateQueries({ queryKey: ["schedule_series", activeSchoolId] });
       toast.success("הסדרה נוצרה בהצלחה");
       setIsSeriesDialogOpen(false);
       resetSeriesForm();

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ interface PayrollAdjustment {
 
 export default function Payroll() {
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [adjustmentDialog, setAdjustmentDialog] = useState<{
     open: boolean;
@@ -68,9 +70,18 @@ export default function Payroll() {
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentDescription, setAdjustmentDescription] = useState("");
 
+  // Show loading state
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   // Fetch payroll summary
   const { data: payrollData, isLoading } = useQuery({
-    queryKey: ["payroll-summary", format(selectedMonth, "yyyy-MM-dd")],
+    queryKey: ["payroll-summary", activeSchoolId, format(selectedMonth, "yyyy-MM-dd")],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_monthly_payroll_summary", {
         p_month: format(selectedMonth, "yyyy-MM-dd"),
@@ -82,16 +93,18 @@ export default function Payroll() {
       if (!data || !Array.isArray(data)) return [];
       return data as unknown as CoachPayroll[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch adjustments for the month
+  // Fetch adjustments for the month - filtered by school_id
   const { data: adjustments } = useQuery({
-    queryKey: ["payroll-adjustments", format(selectedMonth, "yyyy-MM-01")],
+    queryKey: ["payroll-adjustments", activeSchoolId, format(selectedMonth, "yyyy-MM-01")],
     queryFn: async () => {
       const monthStart = format(selectedMonth, "yyyy-MM-01");
       const { data, error } = await supabase
         .from("payroll_adjustments")
         .select("*")
+        .eq("school_id", activeSchoolId)
         .gte("month", monthStart)
         .lt("month", format(addMonths(selectedMonth, 1), "yyyy-MM-01"))
         .order("created_at", { ascending: false });
@@ -99,6 +112,7 @@ export default function Payroll() {
       if (error) throw error;
       return data as PayrollAdjustment[];
     },
+    enabled: !!activeSchoolId,
   });
 
   // Add adjustment mutation
@@ -117,13 +131,14 @@ export default function Payroll() {
         month: format(selectedMonth, "yyyy-MM-15"),
         amount,
         description,
+        school_id: activeSchoolId,
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payroll-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["payroll-adjustments"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-summary", activeSchoolId] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-adjustments", activeSchoolId] });
       toast.success("ההתאמה נוספה בהצלחה");
       resetAdjustmentDialog();
     },
