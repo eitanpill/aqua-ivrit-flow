@@ -40,20 +40,29 @@ const productTypeIcons: Record<ProductType, React.ReactNode> = {
 export default function Products() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { activeSchoolId } = useSchool();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products" as any)
         .select("*")
         .order("created_at", { ascending: false });
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as unknown as Product[];
     },
+    // Disable query until we have a valid school ID
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   const deleteMutation = useMutation({
@@ -75,7 +84,7 @@ export default function Products() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products", activeSchoolId] });
       toast({ title: "המוצר נמחק בהצלחה" });
     },
     onError: (error: Error) => {
@@ -175,6 +184,15 @@ export default function Products() {
       onClick: (product) => deleteMutation.mutate(product.id),
     },
   ];
+
+  // Show loading while school is being determined
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">טוען...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

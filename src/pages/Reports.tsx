@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +27,8 @@ import {
   Download,
   Calendar,
   Clock,
-  ClipboardList
+  ClipboardList,
+  Loader2
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { he } from "date-fns/locale";
@@ -39,6 +41,7 @@ const ATTENDANCE_STATUS_HEBREW: Record<string, string> = {
 };
 
 const Reports = () => {
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
   const monthStart = startOfMonth(new Date(selectedMonth));
@@ -46,48 +49,68 @@ const Reports = () => {
 
   // Fetch monthly revenue from transactions
   const { data: revenueData } = useQuery({
-    queryKey: ["monthly-revenue", selectedMonth],
+    queryKey: ["monthly-revenue", selectedMonth, activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("transactions")
         .select("amount")
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString())
         .eq("status", "completed");
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       const total = data?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       return total;
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   // Fetch active swimmers count
   const { data: activeSwimmersCount } = useQuery({
-    queryKey: ["active-swimmers", selectedMonth],
+    queryKey: ["active-swimmers", selectedMonth, activeSchoolId],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("enrollments")
         .select("swimmer_id", { count: "exact", head: true })
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString())
         .in("status", ["confirmed", "attended"]);
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
 
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   // Fetch occupancy rate
   const { data: occupancyData } = useQuery({
-    queryKey: ["occupancy-rate", selectedMonth],
+    queryKey: ["occupancy-rate", selectedMonth, activeSchoolId],
     queryFn: async () => {
-      const { data: sessions, error: sessionsError } = await supabase
+      let sessionsQuery = supabase
         .from("sessions")
         .select("id, max_participants")
         .gte("start_time", monthStart.toISOString())
         .lte("start_time", monthEnd.toISOString())
         .eq("status", "completed");
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        sessionsQuery = sessionsQuery.eq("school_id", activeSchoolId);
+      }
 
+      const { data: sessions, error: sessionsError } = await sessionsQuery;
       if (sessionsError) throw sessionsError;
 
       if (!sessions || sessions.length === 0) return 0;
@@ -111,30 +134,41 @@ const Reports = () => {
         ? Math.round((totalEnrollments / totalCapacity) * 100)
         : 0;
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   // Fetch payroll data
   const { data: payrollData } = useQuery({
-    queryKey: ["payroll", selectedMonth],
+    queryKey: ["payroll", selectedMonth, activeSchoolId],
     queryFn: async () => {
-      // Get all coaches
-      const { data: coaches, error: coachesError } = await supabase
+      // Get all coaches - filtered by school_id
+      let coachQuery = supabase
         .from("profiles")
         .select("id, first_name, last_name")
         .eq("role", "coach");
+      
+      if (activeSchoolId) {
+        coachQuery = coachQuery.eq("school_id", activeSchoolId);
+      }
 
+      const { data: coaches, error: coachesError } = await coachQuery;
       if (coachesError) throw coachesError;
 
       if (!coaches || coaches.length === 0) return [];
 
-      // Get sessions for the month
-      const { data: sessions, error: sessionsError } = await supabase
+      // Get sessions for the month - filtered by school_id
+      let sessionsQuery = supabase
         .from("sessions")
         .select("coach_id, start_time, end_time")
         .gte("start_time", monthStart.toISOString())
         .lte("start_time", monthEnd.toISOString())
         .in("status", ["completed", "in_progress"]);
+      
+      if (activeSchoolId) {
+        sessionsQuery = sessionsQuery.eq("school_id", activeSchoolId);
+      }
 
+      const { data: sessions, error: sessionsError } = await sessionsQuery;
       if (sessionsError) throw sessionsError;
 
       // Get coach rates - using type assertion since table was just created
@@ -172,6 +206,7 @@ const Reports = () => {
         };
       });
     },
+    enabled: !!activeSchoolId && !isLoadingSchool,
   });
 
   // Fetch attendance data for export
@@ -283,6 +318,15 @@ const Reports = () => {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  // Show loading while school is being determined
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6" dir="rtl">

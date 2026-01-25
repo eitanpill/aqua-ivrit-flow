@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface School {
   id: string;
@@ -19,7 +20,7 @@ interface SchoolContextType {
   allSchools: School[];
   isSuperAdmin: boolean;
   isLoadingSchool: boolean;
-  setActiveSchoolId: (id: string) => void;
+  switchSchool: (id: string) => void;
   refreshSchools: () => Promise<void>;
 }
 
@@ -27,6 +28,7 @@ const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
 
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [currentSchool, setCurrentSchool] = useState<School | null>(null);
   const [allSchools, setAllSchools] = useState<School[]>([]);
   const [activeSchoolId, setActiveSchoolIdState] = useState<string | null>(null);
@@ -37,18 +39,21 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const checkSuperAdmin = async () => {
     if (!user) {
       setIsSuperAdmin(false);
-      return;
+      return false;
     }
 
     try {
       const { data, error } = await (supabase.rpc as any)('is_super_admin');
       if (!error && data === true) {
         setIsSuperAdmin(true);
+        return true;
       } else {
         setIsSuperAdmin(false);
+        return false;
       }
     } catch {
       setIsSuperAdmin(false);
+      return false;
     }
   };
 
@@ -56,7 +61,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     if (!user) {
       setCurrentSchool(null);
       setIsLoadingSchool(false);
-      return;
+      return null;
     }
 
     try {
@@ -75,22 +80,16 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
           .single();
 
         setCurrentSchool(school);
-        
-        // Set active school if not already set
-        if (!activeSchoolId) {
-          setActiveSchoolIdState(school?.id || null);
-        }
+        return school;
       }
+      return null;
     } catch (error) {
       console.error('Error fetching school:', error);
-    } finally {
-      setIsLoadingSchool(false);
+      return null;
     }
   };
 
   const fetchAllSchools = async () => {
-    if (!isSuperAdmin) return;
-
     try {
       const { data: schools } = await supabase
         .from('schools')
@@ -98,8 +97,10 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
         .order('name');
 
       setAllSchools(schools || []);
+      return schools || [];
     } catch (error) {
       console.error('Error fetching all schools:', error);
+      return [];
     }
   };
 
@@ -107,48 +108,84 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     await Promise.all([fetchUserSchool(), fetchAllSchools()]);
   };
 
-  const setActiveSchoolId = (id: string) => {
-    if (isSuperAdmin || id === currentSchool?.id) {
-      setActiveSchoolIdState(id);
-      // Store in localStorage for persistence
-      localStorage.setItem('activeSchoolId', id);
+  // Switch school - only for Super Admins
+  const switchSchool = useCallback((id: string) => {
+    if (!isSuperAdmin) {
+      console.warn('Only Super Admins can switch schools');
+      return;
     }
-  };
+    
+    setActiveSchoolIdState(id);
+    localStorage.setItem('activeSchoolId', id);
+    
+    // CRITICAL: Invalidate ALL queries to force data refresh with new school_id
+    queryClient.invalidateQueries();
+  }, [isSuperAdmin, queryClient]);
 
-  // Load active school from localStorage on mount
+  // Initialize school context
   useEffect(() => {
-    const storedSchoolId = localStorage.getItem('activeSchoolId');
-    if (storedSchoolId && isSuperAdmin) {
-      setActiveSchoolIdState(storedSchoolId);
-    }
-  }, [isSuperAdmin]);
+    const initializeSchoolContext = async () => {
+      if (!user) {
+        setIsLoadingSchool(false);
+        return;
+      }
 
-  // Check super admin status when user changes
-  useEffect(() => {
-    checkSuperAdmin();
+      setIsLoadingSchool(true);
+      
+      try {
+        // Check super admin status first
+        const isSuper = await checkSuperAdmin();
+        
+        // Fetch user's assigned school
+        const userSchool = await fetchUserSchool();
+        
+        if (isSuper) {
+          // Super Admin: Load all schools and check localStorage for last selection
+          const schools = await fetchAllSchools();
+          const storedSchoolId = localStorage.getItem('activeSchoolId');
+          
+          // Validate stored school ID exists
+          const storedSchoolExists = schools.some(s => s.id === storedSchoolId);
+          
+          if (storedSchoolId && storedSchoolExists) {
+            setActiveSchoolIdState(storedSchoolId);
+          } else if (userSchool) {
+            // Default to user's assigned school
+            setActiveSchoolIdState(userSchool.id);
+            localStorage.setItem('activeSchoolId', userSchool.id);
+          } else if (schools.length > 0) {
+            // Fallback to first school
+            setActiveSchoolIdState(schools[0].id);
+            localStorage.setItem('activeSchoolId', schools[0].id);
+          }
+        } else {
+          // Normal Admin/Coach: Force use their assigned school (no switching)
+          if (userSchool) {
+            setActiveSchoolIdState(userSchool.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing school context:', error);
+      } finally {
+        setIsLoadingSchool(false);
+      }
+    };
+
+    initializeSchoolContext();
   }, [user?.id]);
 
-  // Fetch schools when user changes
-  useEffect(() => {
-    fetchUserSchool();
-  }, [user?.id]);
-
-  // Fetch all schools when super admin status is confirmed
-  useEffect(() => {
-    if (isSuperAdmin) {
-      fetchAllSchools();
-    }
-  }, [isSuperAdmin]);
+  // Compute the effective activeSchoolId
+  const effectiveActiveSchoolId = activeSchoolId || currentSchool?.id || null;
 
   return (
     <SchoolContext.Provider
       value={{
         currentSchool,
-        activeSchoolId: activeSchoolId || currentSchool?.id || null,
+        activeSchoolId: effectiveActiveSchoolId,
         allSchools,
         isSuperAdmin,
         isLoadingSchool,
-        setActiveSchoolId,
+        switchSchool,
         refreshSchools,
       }}
     >

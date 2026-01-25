@@ -15,77 +15,36 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useState, useContext } from "react";
-import React from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-
-interface School {
-  id: string;
-  name: string;
-  slug: string;
-}
+import { useState } from "react";
+import { useSchool } from "@/contexts/SchoolContext";
+import { useNavigate } from "react-router-dom";
 
 export function SchoolSwitcher() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { 
+    isSuperAdmin, 
+    allSchools, 
+    activeSchoolId, 
+    switchSchool,
+    isLoadingSchool 
+  } = useSchool();
   const [open, setOpen] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [allSchools, setAllSchools] = useState<School[]>([]);
-  const [activeSchoolId, setActiveSchoolIdState] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Check super admin status and fetch schools
-  React.useEffect(() => {
-    const checkAndFetch = async () => {
-      if (!user) {
-        setIsSuperAdmin(false);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await (supabase.rpc as any)('is_super_admin');
-        if (!error && data === true) {
-          setIsSuperAdmin(true);
-          
-          // Fetch all schools
-          const { data: schools } = await supabase
-            .from('schools')
-            .select('id, name, slug')
-            .order('name');
-          
-          setAllSchools(schools || []);
-          
-          // Load from localStorage
-          const stored = localStorage.getItem('activeSchoolId');
-          if (stored) {
-            setActiveSchoolIdState(stored);
-          } else if (schools && schools.length > 0) {
-            setActiveSchoolIdState(schools[0].id);
-          }
-        } else {
-          setIsSuperAdmin(false);
-        }
-      } catch {
-        setIsSuperAdmin(false);
-      }
-      setIsLoading(false);
-    };
-
-    checkAndFetch();
-  }, [user?.id]);
-
-  const setActiveSchoolId = (id: string) => {
-    setActiveSchoolIdState(id);
-    localStorage.setItem('activeSchoolId', id);
-  };
 
   // Don't render anything if not super admin or still loading
-  if (isLoading || !isSuperAdmin) {
+  if (isLoadingSchool || !isSuperAdmin) {
     return null;
   }
 
   const activeSchool = allSchools.find(s => s.id === activeSchoolId);
+
+  const handleSchoolSelect = (schoolId: string) => {
+    // Switch school context (this will invalidate all queries)
+    switchSchool(schoolId);
+    setOpen(false);
+    
+    // Navigate to dashboard for a clean view
+    navigate('/dashboard');
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -121,10 +80,7 @@ export function SchoolSwitcher() {
                   <CommandItem
                     key={school.id}
                     value={school.name}
-                    onSelect={() => {
-                      setActiveSchoolId(school.id);
-                      setOpen(false);
-                    }}
+                    onSelect={() => handleSchoolSelect(school.id)}
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2">

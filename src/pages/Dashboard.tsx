@@ -106,11 +106,11 @@ export default function Dashboard() {
     enabled: !!activeSchoolId || !isSuperAdmin, // Run if we have a school or not super admin
   });
 
-  // Fetch recent activity
+  // Fetch recent activity - filtered by school_id
   const { data: recentEnrollments } = useQuery({
-    queryKey: ["recent-enrollments"],
+    queryKey: ["recent-enrollments", activeSchoolId],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("enrollments")
         .select(`
           id,
@@ -120,18 +120,24 @@ export default function Dashboard() {
         `)
         .order("created_at", { ascending: false })
         .limit(5);
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
 
+      const { data } = await query;
       return data;
     },
-    enabled: isAdmin || isCoach,
+    enabled: (isAdmin || isCoach) && !!activeSchoolId,
   });
 
-  // Fetch upcoming sessions
+  // Fetch upcoming sessions - filtered by school_id
   const { data: upcomingSessions } = useQuery({
-    queryKey: ["upcoming-sessions"],
+    queryKey: ["upcoming-sessions", activeSchoolId],
     queryFn: async () => {
       const now = new Date().toISOString();
-      const { data } = await supabase
+      let query = supabase
         .from("sessions")
         .select(`
           id,
@@ -142,9 +148,16 @@ export default function Dashboard() {
         .gte("start_time", now)
         .order("start_time", { ascending: true })
         .limit(3);
+      
+      // CRITICAL: Filter by school_id
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
 
+      const { data } = await query;
       return data;
     },
+    enabled: !!activeSchoolId,
   });
 
   const getGreeting = () => {
