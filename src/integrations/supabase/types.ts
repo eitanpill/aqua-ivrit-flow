@@ -2013,7 +2013,7 @@ export type Database = {
           p_owner_last_name: string
           p_school_name: string
         }
-        Returns: Json
+        Returns: string
       }
       create_school_for_owner: {
         Args: {
