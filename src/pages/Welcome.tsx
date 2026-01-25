@@ -74,17 +74,17 @@ export default function Welcome() {
     setIsCreatingSchool(true);
 
     try {
-      const { data: result, error } = await supabase.rpc("create_school_and_owner", {
+      const { data: schoolId, error } = await supabase.rpc("create_school_and_owner", {
         p_school_name: schoolName.trim(),
         p_owner_first_name: profile?.first_name || "משתמש",
         p_owner_last_name: profile?.last_name || "חדש",
       });
 
-      if (error || !(result as any)?.success) {
-        console.error("School creation error:", error || result);
+      if (error || !schoolId) {
+        console.error("School creation error:", error);
         toast({
           title: "שגיאה ביצירת בית הספר",
-          description: (result as any)?.error || error?.message || "נסה שוב מאוחר יותר",
+          description: error?.message || "נסה שוב מאוחר יותר",
           variant: "destructive",
         });
         return;

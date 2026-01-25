@@ -79,7 +79,7 @@ export default function SetupSchool() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.rpc("create_school_and_owner", {
+      const { data: schoolId, error } = await supabase.rpc("create_school_and_owner", {
         p_school_name: formData.schoolName,
         p_owner_first_name: formData.firstName,
         p_owner_last_name: formData.lastName,
@@ -89,10 +89,8 @@ export default function SetupSchool() {
         throw error;
       }
 
-      const result = data as { success: boolean; error?: string; school_id?: string };
-
-      if (!result.success) {
-        throw new Error(result.error || "שגיאה ביצירת בית הספר");
+      if (!schoolId) {
+        throw new Error("שגיאה ביצירת בית הספר");
       }
 
       // Invalidate queries to refresh user data

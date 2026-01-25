@@ -122,10 +122,15 @@ Deno.serve(async (req) => {
     const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
     const functionsUrl = `${supabaseUrl}/functions/v1`;
 
+    // Green Invoice API expects amount in agorot (1/100 shekel)
+    // Minimum amount is 1 shekel (100 agorot)
+    const amountInShekels = Math.max(1, Number(amount));
+    const amountInAgorot = Math.round(amountInShekels * 100);
+
     const paymentRequestBody = {
       description: 'רכישה במערכת AquaFlow',
       type: 320, // Payment form type
-      sum: Number(amount),
+      sum: amountInAgorot,
       currency: 'ILS',
       maxPayments: 1,
       pluginId: product_id || 'aquaflow-purchase',
