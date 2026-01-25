@@ -41,14 +41,21 @@ Deno.serve(async (req) => {
       payload.customerEmail;
     
     const amount = parseFloat(payload.total || payload.amount || payload.sum || '0');
-    const docNumber = payload.number || payload.docNumber || payload.invoiceNumber || '';
+    const docNumber = String(payload.number || payload.docNumber || payload.invoiceNumber || '');
     const transactionId = payload.id || payload.transactionId || payload.paymentId || '';
     
     // Extract customer name for logging
     const customerName = payload.payer?.name || payload.recipient?.name || '';
     const customerPhone = payload.payer?.phone || payload.recipient?.phone || payload.recipient?.mobile || '';
+    
+    // Extract invoice download URL from Morning
+    const invoiceUrl = 
+      payload.files?.downloadLinks?.he || 
+      payload.files?.downloadLinks?.origin ||
+      payload.documentUrl ||
+      null;
 
-    console.log('[payment-webhook] Parsed data:', { email, amount, docNumber, transactionId, customerName, customerPhone });
+    console.log('[payment-webhook] Parsed data:', { email, amount, docNumber, transactionId, customerName, customerPhone, invoiceUrl: invoiceUrl ? 'exists' : 'none' });
 
     if (!email) {
       console.error('[payment-webhook] No email found in payload');
@@ -115,6 +122,31 @@ Deno.serve(async (req) => {
         console.error('[payment-webhook] Transaction insert error:', txError);
       } else {
         console.log('[payment-webhook] Transaction created:', transaction?.id);
+        
+        // Step 2.5: Create invoice record with the Morning download link
+        if (invoiceUrl && transaction?.id) {
+          const { data: invoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .insert({
+              user_id: userId,
+              school_id: schoolId,
+              transaction_id: transaction.id,
+              invoice_number: docNumber || `M-${transactionId.substring(0, 8)}`,
+              amount: amount,
+              url: invoiceUrl,
+              issued_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+          
+          if (invoiceError) {
+            console.error('[payment-webhook] Invoice insert error:', invoiceError);
+          } else {
+            console.log('[payment-webhook] Invoice created:', invoice?.id, 'with URL');
+          }
+        } else {
+          console.log('[payment-webhook] No invoice URL to save');
+        }
       }
 
       // Step 3: Grant access based on amount
