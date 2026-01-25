@@ -189,7 +189,8 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   return (
     <SchoolContext.Provider
       value={{
-        currentSchool,
+        // Expose the ACTIVE school scope (Super Admin selection OR assigned school)
+        currentSchool: activeSchool || null,
         activeSchoolId: effectiveActiveSchoolId,
         allSchools,
         isSuperAdmin,

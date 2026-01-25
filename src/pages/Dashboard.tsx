@@ -9,6 +9,7 @@ import { MyBookings } from "@/components/customer/MyBookings";
 import { EmergencyOperations } from "@/components/admin/EmergencyOperations";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Badge } from "@/components/ui/badge";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
 interface DashboardStats {
   totalSwimmers: number;
@@ -29,82 +30,8 @@ export default function Dashboard() {
     ? allSchools.find(s => s.id === activeSchoolId)?.name 
     : currentSchool?.name;
 
-  // Fetch real stats from database - filtered by activeSchoolId
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["dashboard-stats", isAdmin, activeSchoolId],
-    queryFn: async (): Promise<DashboardStats> => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      // Build base queries with school_id filter
-      let swimmersQuery = supabase.from("swimmers").select("*", { count: "exact", head: true });
-      let locationsQuery = supabase.from("locations").select("*", { count: "exact", head: true });
-      let sessionsQuery = supabase.from("sessions").select("*", { count: "exact", head: true })
-        .gte("start_time", today.toISOString())
-        .lt("start_time", tomorrow.toISOString());
-      
-      // Apply school filter if activeSchoolId is set
-      if (activeSchoolId) {
-        swimmersQuery = swimmersQuery.eq("school_id", activeSchoolId);
-        locationsQuery = locationsQuery.eq("school_id", activeSchoolId);
-        sessionsQuery = sessionsQuery.eq("school_id", activeSchoolId);
-      }
-
-      // Get swimmers count
-      const { count: swimmersCount } = await swimmersQuery;
-
-      // Get locations count
-      const { count: locationsCount } = await locationsQuery;
-
-      // Get coaches count from user_roles
-      const { count: coachesCount } = await supabase
-        .from("user_roles" as any)
-        .select("*", { count: "exact", head: true })
-        .in("role", ["coach", "admin"]);
-
-      // Get today's sessions
-      const { count: todaySessionsCount } = await sessionsQuery;
-
-      let totalRevenue = 0;
-      let activeEnrollments = 0;
-
-      // Admin-only stats
-      if (isAdmin) {
-        // Get total revenue from transactions
-        const { data: transactions } = await supabase
-          .from("transactions")
-          .select("amount")
-          .eq("status", "completed");
-
-        totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-
-        // Get active enrollments with school filter
-        let enrollmentsQuery = supabase
-          .from("enrollments")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "confirmed");
-        
-        if (activeSchoolId) {
-          enrollmentsQuery = enrollmentsQuery.eq("school_id", activeSchoolId);
-        }
-
-        const { count: enrollmentsCount } = await enrollmentsQuery;
-        activeEnrollments = enrollmentsCount || 0;
-      }
-
-      return {
-        totalSwimmers: swimmersCount || 0,
-        totalLocations: locationsCount || 0,
-        totalCoaches: coachesCount || 0,
-        todaySessions: todaySessionsCount || 0,
-        totalRevenue,
-        activeEnrollments,
-      };
-    },
-    enabled: !!activeSchoolId || !isSuperAdmin, // Run if we have a school or not super admin
-  });
+  // Fetch stats (STRICT: always scoped by currentSchool.id)
+  const { data: stats, isLoading } = useDashboardStats({ isAdmin });
 
   // Fetch recent activity - filtered by school_id
   const { data: recentEnrollments } = useQuery({
