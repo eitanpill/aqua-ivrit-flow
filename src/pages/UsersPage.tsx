@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ const roleBadgeVariant: Record<AppRole, "default" | "secondary" | "outline"> = {
 
 export default function UsersPage() {
   const { isAdmin, user: currentUser } = useAuth();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [searchTerm, setSearchTerm] = useState("");
   
   // Modal states
@@ -55,13 +57,15 @@ export default function UsersPage() {
   const [enrollmentUser, setEnrollmentUser] = useState<{ id: string; name: string } | null>(null);
   const [coachDetails, setCoachDetails] = useState<{ id: string; name: string } | null>(null);
 
-  // Fetch all users with their profiles and roles
+  // Fetch all users with their profiles and roles - filtered by school_id
   const { data: users, isLoading } = useQuery({
-    queryKey: ["all-users"],
+    queryKey: ["all-users", activeSchoolId],
     queryFn: async () => {
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, phone, created_at, role")
+        .eq("school_id", activeSchoolId)
+        .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -84,8 +88,17 @@ export default function UsersPage() {
 
       return usersWithRoles;
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!activeSchoolId,
   });
+
+  // Show loading state
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   // Filter users by search term
   const filteredUsers = users?.filter((user) => {

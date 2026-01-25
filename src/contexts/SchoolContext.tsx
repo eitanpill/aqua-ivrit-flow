@@ -20,11 +20,15 @@ interface SchoolContextType {
   allSchools: School[];
   isSuperAdmin: boolean;
   isLoadingSchool: boolean;
+  isDemoSchool: boolean;
   switchSchool: (id: string) => void;
   refreshSchools: () => Promise<void>;
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
+
+// Demo school detection - by slug pattern
+const DEMO_SCHOOL_SLUGS = ['demo-school', 'demo', 'demo-swimming-school'];
 
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
@@ -35,7 +39,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingSchool, setIsLoadingSchool] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Check if user is a platform admin via database function (not hardcoded email)
+  // Check if user is a platform admin via database function
   const checkSuperAdmin = async () => {
     if (!user) {
       setIsSuperAdmin(false);
@@ -60,12 +64,10 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserSchool = async () => {
     if (!user) {
       setCurrentSchool(null);
-      setIsLoadingSchool(false);
       return null;
     }
 
     try {
-      // Get user's profile with school_id
       const { data: profile } = await supabase
         .from('profiles')
         .select('school_id')
@@ -127,6 +129,9 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     const initializeSchoolContext = async () => {
       if (!user) {
         setIsLoadingSchool(false);
+        setActiveSchoolIdState(null);
+        setCurrentSchool(null);
+        setAllSchools([]);
         return;
       }
 
@@ -174,6 +179,10 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     initializeSchoolContext();
   }, [user?.id]);
 
+  // Compute if viewing a demo school
+  const activeSchool = allSchools.find(s => s.id === activeSchoolId) || currentSchool;
+  const isDemoSchool = activeSchool ? DEMO_SCHOOL_SLUGS.includes(activeSchool.slug.toLowerCase()) : false;
+
   // Compute the effective activeSchoolId
   const effectiveActiveSchoolId = activeSchoolId || currentSchool?.id || null;
 
@@ -185,6 +194,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
         allSchools,
         isSuperAdmin,
         isLoadingSchool,
+        isDemoSchool,
         switchSchool,
         refreshSchools,
       }}

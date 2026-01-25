@@ -11,6 +11,7 @@ import {
   Save,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSchool } from '@/contexts/SchoolContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,7 @@ interface ClassLevel {
 
 export default function SkillsManagement() {
   const queryClient = useQueryClient();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   
@@ -77,33 +79,45 @@ export default function SkillsManagement() {
   const [isRequired, setIsRequired] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
 
-  // Fetch skills
+  // Fetch skills - filtered by school_id
   const { data: skills = [], isLoading: skillsLoading } = useQuery({
-    queryKey: ['skills-management'],
+    queryKey: ['skills-management', activeSchoolId],
     queryFn: async () => {
       const { data, error } = await (supabase
         .from('skills' as any)
         .select('*')
+        .eq('school_id', activeSchoolId)
         .order('sort_order') as any);
 
       if (error) throw error;
       return (data || []) as Skill[];
     },
+    enabled: !!activeSchoolId,
   });
 
-  // Fetch class levels
+  // Fetch class levels - filtered by school_id
   const { data: levels = [] } = useQuery({
-    queryKey: ['class-levels'],
+    queryKey: ['class-levels', activeSchoolId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('class_levels')
         .select('id, name')
+        .eq('school_id', activeSchoolId)
         .order('sort_order');
 
       if (error) throw error;
       return (data || []) as ClassLevel[];
     },
+    enabled: !!activeSchoolId,
   });
+
+  if (isLoadingSchool || skillsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Create skill mutation
   const createSkillMutation = useMutation({
@@ -116,13 +130,14 @@ export default function SkillsManagement() {
           level_id: skillLevelId || null,
           required_for_graduation: isRequired,
           sort_order: sortOrder,
+          school_id: activeSchoolId,
         } as any) as any);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills-management'] });
-      queryClient.invalidateQueries({ queryKey: ['skills'] });
+      queryClient.invalidateQueries({ queryKey: ['skills-management', activeSchoolId] });
+      queryClient.invalidateQueries({ queryKey: ['skills', activeSchoolId] });
       toast.success('המיומנות נוספה בהצלחה');
       resetForm();
       setDialogOpen(false);
@@ -151,8 +166,8 @@ export default function SkillsManagement() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills-management'] });
-      queryClient.invalidateQueries({ queryKey: ['skills'] });
+      queryClient.invalidateQueries({ queryKey: ['skills-management', activeSchoolId] });
+      queryClient.invalidateQueries({ queryKey: ['skills', activeSchoolId] });
       toast.success('המיומנות עודכנה בהצלחה');
       resetForm();
       setDialogOpen(false);
@@ -173,8 +188,8 @@ export default function SkillsManagement() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills-management'] });
-      queryClient.invalidateQueries({ queryKey: ['skills'] });
+      queryClient.invalidateQueries({ queryKey: ['skills-management', activeSchoolId] });
+      queryClient.invalidateQueries({ queryKey: ['skills', activeSchoolId] });
       toast.success('המיומנות נמחקה');
     },
     onError: () => {
