@@ -41,6 +41,7 @@ import {
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { formatCurrency } from "@/lib/pricingCalculator";
+import { useSwimmers } from "@/hooks/useSwimmers";
 
 interface RegistrationCheckoutProps {
   open: boolean;
@@ -64,20 +65,9 @@ const RegistrationCheckout = ({ open, onOpenChange }: RegistrationCheckoutProps)
 
   // isStaff is now from useAuth hook
 
-  // Fetch swimmers
-  const { data: swimmers } = useQuery({
-    queryKey: ["swimmers-for-checkout", user?.id, isStaff],
-    queryFn: async () => {
-      let query = supabase.from("swimmers").select("*");
-      
-      if (!isStaff) {
-        query = query.eq("parent_id", user?.id);
-      }
-      
-      const { data, error } = await query.order("first_name");
-      if (error) throw error;
-      return data;
-    },
+  // Fetch swimmers (STRICT: always scoped by active school)
+  const { data: swimmers } = useSwimmers({
+    parentId: !isStaff ? user?.id : undefined,
     enabled: !!user?.id,
   });
 
