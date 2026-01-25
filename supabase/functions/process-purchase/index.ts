@@ -65,12 +65,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // STEP 1: Fetch Payment Credentials from payment_configs table
+    // STEP 1: Fetch Payment Credentials from payment_configs table (including plugin_id)
     console.log('Fetching payment credentials for school:', school_id);
     
     const { data: paymentConfig, error: configError } = await supabase
       .from('payment_configs')
-      .select('api_key, api_secret')
+      .select('api_key, api_secret, plugin_id')
       .eq('school_id', school_id)
       .eq('is_active', true)
       .single();
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { api_key, api_secret } = paymentConfig;
+    const { api_key, api_secret, plugin_id } = paymentConfig;
 
     if (!api_key || !api_secret) {
       console.error('Missing API credentials');
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Payment credentials found, proceeding to Green Invoice API...');
+    console.log('Payment credentials found, plugin_id:', plugin_id || 'NOT SET');
 
     // STEP 2A: Get Token from Green Invoice API
     console.log('Requesting token from Green Invoice API...');
@@ -143,9 +143,9 @@ Deno.serve(async (req) => {
 
     // Morning (GreenInvoice) "Get Payment Form" endpoint expects:
     // - amount in Shekels (NOT Agorot)
-    // - required: lang, vatType
-    // NOTE: Removed pluginId as it was causing 404 errors - let API use default
-    const paymentRequestBody = {
+    // - pluginId is REQUIRED unless using Cardcom (per API docs)
+    // Ref: https://www.greeninvoice.co.il/api-docs/#/reference/payments/get-payment-form
+    const paymentRequestBody: Record<string, unknown> = {
       description: 'רכישה במערכת AquaFlow',
       type: 320, // Payment form type
       lang: 'he',
@@ -161,6 +161,14 @@ Deno.serve(async (req) => {
         add: false,
       },
     };
+
+    // Add pluginId if configured (REQUIRED for most providers except Cardcom)
+    if (plugin_id) {
+      paymentRequestBody.pluginId = plugin_id;
+      console.log('Using configured pluginId:', plugin_id);
+    } else {
+      console.warn('⚠️ No pluginId configured - this may cause error 2600 if not using Cardcom');
+    }
 
     console.log("📤 Sending to Morning:", JSON.stringify(paymentRequestBody));
 
