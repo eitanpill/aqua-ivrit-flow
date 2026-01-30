@@ -138,8 +138,9 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      // Redirect to /auth to properly handle the OAuth callback
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: `${window.location.origin}/auth`,
       });
       
       if (error) {
@@ -148,14 +149,15 @@ export default function Auth() {
           description: error.message,
           variant: "destructive",
         });
+        setIsGoogleLoading(false);
       }
+      // Don't set loading to false on success - user will be redirected
     } catch (error: any) {
       toast({
         title: "שגיאה בהתחברות",
         description: error.message || "אירעה שגיאה בתהליך ההתחברות",
         variant: "destructive",
       });
-    } finally {
       setIsGoogleLoading(false);
     }
   };
