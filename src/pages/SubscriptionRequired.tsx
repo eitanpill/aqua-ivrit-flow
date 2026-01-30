@@ -1,18 +1,35 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Waves, CreditCard, RefreshCw, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import { Waves, CreditCard, RefreshCw, Loader2, CheckCircle2, ExternalLink, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const SUBSCRIPTION_PAYMENT_LINK = "https://mrng.to/3Q95CZQDbV";
 
 export default function SubscriptionRequired() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const [paymentFailed, setPaymentFailed] = useState(false);
+
+  // Check for payment failure from redirect
+  useEffect(() => {
+    if (searchParams.get("payment") === "failed") {
+      setPaymentFailed(true);
+      toast({
+        title: "התשלום לא הושלם",
+        description: "נסה שוב או פנה לתמיכה",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
 
   // Check if user already has subscription_paid = true
   const checkPaymentStatus = async () => {
@@ -75,8 +92,36 @@ export default function SubscriptionRequired() {
     return () => clearInterval(interval);
   }, [user, isPaid]);
 
-  const handlePaymentClick = () => {
-    window.open(SUBSCRIPTION_PAYMENT_LINK, "_blank");
+  const handlePaymentClick = async () => {
+    if (!user) return;
+    
+    setIsCreatingPayment(true);
+    
+    try {
+      // Try to generate a dynamic payment link with proper redirect
+      const { data, error } = await supabase.functions.invoke('subscription-payment', {
+        body: {
+          user_id: user.id,
+          user_email: user.email,
+          user_name: user.user_metadata?.first_name || 'לקוח חדש',
+        },
+      });
+
+      if (error || !data?.success) {
+        console.warn("Dynamic payment failed, using fallback:", error || data?.error);
+        // Fallback to static link
+        window.open(SUBSCRIPTION_PAYMENT_LINK, "_blank");
+      } else {
+        // Redirect to dynamic payment URL
+        window.location.href = data.paymentUrl;
+      }
+    } catch (error) {
+      console.error("Payment initiation error:", error);
+      // Fallback to static link
+      window.open(SUBSCRIPTION_PAYMENT_LINK, "_blank");
+    } finally {
+      setIsCreatingPayment(false);
+    }
   };
 
   if (authLoading) {
@@ -125,6 +170,13 @@ export default function SubscriptionRequired() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {paymentFailed && (
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>התשלום לא הושלם. אנא נסה שוב.</span>
+            </div>
+          )}
+          
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
             <h3 className="font-semibold text-center">מה כולל המינוי?</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -134,7 +186,7 @@ export default function SubscriptionRequired() {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                <span>ניהול שוחים, מאמנים ושיעורים</span>
+                <span>ניהול שחיינים, מאמנים ושיעורים</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
@@ -150,10 +202,19 @@ export default function SubscriptionRequired() {
           <Button 
             onClick={handlePaymentClick} 
             className="w-full gradient-primary h-12 text-lg"
+            disabled={isCreatingPayment}
           >
-            <CreditCard className="ml-2 h-5 w-5" />
-            מעבר להקמת הוראת קבע
-            <ExternalLink className="mr-2 h-4 w-4" />
+            {isCreatingPayment ? (
+              <>
+                <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                מכין קישור תשלום...
+              </>
+            ) : (
+              <>
+                <CreditCard className="ml-2 h-5 w-5" />
+                מעבר להקמת הוראת קבע
+              </>
+            )}
           </Button>
 
           <div className="text-center">
