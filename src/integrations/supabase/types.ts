@@ -2019,14 +2019,27 @@ export type Database = {
         }
         Returns: Json
       }
-      create_school_and_owner: {
-        Args: {
-          p_owner_first_name: string
-          p_owner_last_name: string
-          p_school_name: string
-        }
-        Returns: string
-      }
+      create_school_and_owner:
+        | {
+            Args: {
+              p_owner_first_name: string
+              p_owner_last_name: string
+              p_school_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_owner_first_name: string
+              p_owner_last_name: string
+              p_pool_address?: string
+              p_pool_name?: string
+              p_school_email?: string
+              p_school_name: string
+              p_school_phone?: string
+            }
+            Returns: string
+          }
       create_school_for_owner: {
         Args: {
           p_email?: string
