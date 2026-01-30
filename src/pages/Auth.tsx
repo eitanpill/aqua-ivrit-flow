@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Waves, Mail, Lock, User, Building2, AlertCircle, Play, ArrowLeft } from "lucide-react";
+import { Waves, Mail, Lock, User, Building2, AlertCircle, Play, ArrowLeft, Phone, MapPin } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -54,6 +55,7 @@ export default function Auth() {
   );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
   
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ 
@@ -61,8 +63,42 @@ export default function Auth() {
     password: "", 
     firstName: "", 
     lastName: "",
-    schoolName: ""
+    schoolName: "",
+    schoolPhone: "",
+    schoolEmail: "",
+    poolName: "",
+    poolAddress: ""
   });
+
+  // Handle password recovery from email link
+  useEffect(() => {
+    const handleHashParams = async () => {
+      // Check for hash params (Supabase uses hash for recovery)
+      const hash = window.location.hash;
+      if (hash && hash.includes('type=recovery')) {
+        // Supabase auto-processes the hash, we just need to detect it and show the form
+        setAuthView('reset-password');
+        
+        // Wait for Supabase to process the token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setHasRecoverySession(true);
+        }
+      }
+    };
+    
+    handleHashParams();
+    
+    // Listen for PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthView('reset-password');
+        setHasRecoverySession(true);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Fetch invited school info
   useEffect(() => {
@@ -672,88 +708,164 @@ export default function Auth() {
 
   // Create School / Signup View
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 py-8">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
-        <CardHeader className="text-center space-y-4">
+      <Card className="w-full max-w-lg relative z-10 shadow-xl border-border/50">
+        <CardHeader className="text-center space-y-4 pb-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary aqua-glow">
             <Waves className="h-8 w-8 text-primary-foreground" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">
-              {invitedSchool ? "הצטרפות לבית ספר" : "הרשמה ל-AquaFlow"}
+              {invitedSchool ? "הצטרפות לבית ספר" : "הקמת בית ספר לשחייה"}
             </CardTitle>
             {invitedSchool ? (
               <CardDescription>
                 הצטרפות לבית הספר: <span className="font-semibold text-foreground">{invitedSchool.name}</span>
               </CardDescription>
             ) : (
-              <CardDescription>צור חשבון והתחל לנהל את בית הספר שלך</CardDescription>
+              <CardDescription>מלא את הפרטים כדי להתחיל לנהל את בית הספר שלך</CardDescription>
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <form onSubmit={handleSignup} className="space-y-4">
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-firstname">שם פרטי</Label>
-                <div className="relative">
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {/* Personal Details Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <User className="h-4 w-4" />
+                פרטים אישיים
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-firstname">שם פרטי</Label>
                   <Input
                     id="signup-firstname"
                     type="text"
                     placeholder="ישראל"
-                    className="pr-10"
                     value={signupForm.firstName}
                     onChange={(e) => setSignupForm({ ...signupForm, firstName: e.target.value })}
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-lastname">שם משפחה</Label>
+                  <Input
+                    id="signup-lastname"
+                    type="text"
+                    placeholder="ישראלי"
+                    value={signupForm.lastName}
+                    onChange={(e) => setSignupForm({ ...signupForm, lastName: e.target.value })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="signup-lastname">שם משפחה</Label>
-                <Input
-                  id="signup-lastname"
-                  type="text"
-                  placeholder="ישראלי"
-                  value={signupForm.lastName}
-                  onChange={(e) => setSignupForm({ ...signupForm, lastName: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-email">אימייל</Label>
-              <div className="relative">
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  className="pr-10"
-                  value={signupForm.email}
-                  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-password">סיסמה</Label>
-              <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="pr-10"
-                  value={signupForm.password}
-                  onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                  dir="ltr"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-email">אימייל</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={signupForm.email}
+                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="signup-password">סיסמה</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
               </div>
             </div>
+
+            {/* School Details Section - Only for create-school flow */}
+            {!invitedSchool && authView === 'create-school' && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    פרטי בית הספר
+                  </h3>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="school-name">שם בית הספר לשחייה *</Label>
+                    <Input
+                      id="school-name"
+                      type="text"
+                      placeholder='לדוגמה: "בית הספר לשחייה אקווה"'
+                      value={signupForm.schoolName}
+                      onChange={(e) => setSignupForm({ ...signupForm, schoolName: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="school-phone">טלפון בית הספר</Label>
+                      <Input
+                        id="school-phone"
+                        type="tel"
+                        placeholder="03-1234567"
+                        value={signupForm.schoolPhone}
+                        onChange={(e) => setSignupForm({ ...signupForm, schoolPhone: e.target.value })}
+                        dir="ltr"
+                        className="text-right"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="school-email">אימייל בית הספר</Label>
+                      <Input
+                        id="school-email"
+                        type="email"
+                        placeholder="info@school.co.il"
+                        value={signupForm.schoolEmail}
+                        onChange={(e) => setSignupForm({ ...signupForm, schoolEmail: e.target.value })}
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Waves className="h-4 w-4" />
+                    פרטי הבריכה
+                  </h3>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pool-name">שם הבריכה / המתקן</Label>
+                    <Input
+                      id="pool-name"
+                      type="text"
+                      placeholder='לדוגמה: "בריכת השחייה העירונית"'
+                      value={signupForm.poolName}
+                      onChange={(e) => setSignupForm({ ...signupForm, poolName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pool-address">כתובת</Label>
+                    <div className="relative">
+                      <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="pool-address"
+                        type="text"
+                        placeholder="רחוב, עיר"
+                        className="pr-10"
+                        value={signupForm.poolAddress}
+                        onChange={(e) => setSignupForm({ ...signupForm, poolAddress: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <Button 
               type="submit" 
@@ -764,7 +876,7 @@ export default function Auth() {
             </Button>
           </form>
           
-          <div className="relative my-4">
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -807,7 +919,7 @@ export default function Auth() {
             )}
           </Button>
           
-          <div className="mt-4 text-center space-y-2">
+          <div className="text-center space-y-2">
             <button 
               className="text-sm text-muted-foreground hover:text-primary"
               onClick={() => setAuthView('landing')}
