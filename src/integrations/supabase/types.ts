@@ -2045,6 +2045,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_payment_config: { Args: { p_config_id: string }; Returns: Json }
       generate_sessions_from_series: {
         Args: { p_series_id: string }
         Returns: Json
@@ -2173,17 +2174,28 @@ export type Database = {
         Args: { p_max_participants: number; p_session_id: string }
         Returns: Json
       }
-      upsert_payment_config: {
-        Args: {
-          p_api_key: string
-          p_api_secret?: string
-          p_is_active?: boolean
-          p_plugin_id?: string
-          p_provider_name: Database["public"]["Enums"]["payment_provider"]
-          p_school_id: string
-        }
-        Returns: Json
-      }
+      upsert_payment_config:
+        | {
+            Args: {
+              p_api_key: string
+              p_api_secret?: string
+              p_is_active?: boolean
+              p_plugin_id?: string
+              p_provider_name: Database["public"]["Enums"]["payment_provider"]
+              p_school_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_api_key: string
+              p_api_secret?: string
+              p_plugin_id?: string
+              p_provider_name: string
+              p_school_id: string
+            }
+            Returns: Json
+          }
       user_has_school_access: {
         Args: { p_school_id: string }
         Returns: boolean
