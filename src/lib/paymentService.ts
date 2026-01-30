@@ -123,7 +123,8 @@ export function getProviderDisplayName(provider: PaymentProvider): string {
 }
 
 /**
- * Add or update payment configuration
+ * Add or update payment configuration via secure RPC
+ * Uses server-side function to prevent exposure of raw API keys
  */
 export async function upsertPaymentConfig(
   schoolId: string,
@@ -132,73 +133,36 @@ export async function upsertPaymentConfig(
   apiSecret?: string,
   pluginId?: string
 ): Promise<{ success: boolean; error?: string }> {
-  // First try to update existing
-  const { data: existing } = await supabase
-    .from('payment_configs')
-    .select('id')
-    .eq('school_id', schoolId)
-    .eq('provider_name', provider)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('upsert_payment_config', {
+    p_school_id: schoolId,
+    p_provider_name: provider,
+    p_api_key: apiKey,
+    p_api_secret: apiSecret || null,
+    p_plugin_id: pluginId || null
+  });
 
-  if (existing) {
-    // Update existing
-    const { error } = await supabase
-      .from('payment_configs')
-      .update({
-        api_key: apiKey,
-        api_secret: apiSecret || null,
-        plugin_id: pluginId || null,
-        is_active: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', existing.id);
-
-    if (error) {
-      console.error('Error updating payment config:', error);
-      return { success: false, error: 'שגיאה בעדכון הגדרות התשלום' };
-    }
-  } else {
-    // Insert new
-    const { error } = await supabase
-      .from('payment_configs')
-      .insert({
-        school_id: schoolId,
-        provider_name: provider,
-        api_key: apiKey,
-        api_secret: apiSecret || null,
-        plugin_id: pluginId || null,
-        is_active: true
-      });
-
-    if (error) {
-      console.error('Error inserting payment config:', error);
-      return { success: false, error: 'שגיאה בהוספת הגדרות התשלום' };
-    }
+  if (error) {
+    console.error('Error upserting payment config:', error);
+    return { success: false, error: 'שגיאה בשמירת הגדרות התשלום' };
   }
 
-  // Deactivate other providers for this school
-  await supabase
-    .from('payment_configs')
-    .update({ is_active: false })
-    .eq('school_id', schoolId)
-    .neq('provider_name', provider);
-
-  return { success: true };
+  const result = data as { success: boolean; error?: string };
+  return result;
 }
 
 /**
- * Delete a payment configuration
+ * Delete a payment configuration via secure RPC
  */
 export async function deletePaymentConfig(configId: string): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from('payment_configs')
-    .delete()
-    .eq('id', configId);
+  const { data, error } = await supabase.rpc('delete_payment_config', {
+    p_config_id: configId
+  });
 
   if (error) {
     console.error('Error deleting payment config:', error);
     return { success: false, error: 'שגיאה במחיקת הגדרות התשלום' };
   }
 
-  return { success: true };
+  const result = data as { success: boolean; error?: string };
+  return result;
 }
