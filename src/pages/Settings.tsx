@@ -1,11 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Building2, CreditCard, Webhook, Shield, Trash2 } from "lucide-react";
+import { Users, Building2, CreditCard, Webhook, Shield, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { SchoolProfile } from "@/components/settings/SchoolProfile";
 import { PaymentSettings } from "@/components/settings/PaymentSettings";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
 import { AuditLogViewer } from "@/components/settings/AuditLogViewer";
 import { DeletedItemsManager } from "@/components/settings/DeletedItemsManager";
+import { SystemPoliciesEditor } from "@/components/settings/SystemPoliciesEditor";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Settings() {
@@ -54,6 +55,12 @@ export default function Settings() {
               פריטים מחוקים
             </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="policies" className="gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              מדיניות מערכת
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="school">
@@ -87,6 +94,12 @@ export default function Settings() {
         {isAdmin && (
           <TabsContent value="deleted">
             <DeletedItemsManager />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="policies">
+            <SystemPoliciesEditor />
           </TabsContent>
         )}
 
