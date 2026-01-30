@@ -243,12 +243,12 @@ export default function Booking() {
   };
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
+    <div className="flex items-center justify-center mb-6 sm:mb-8 overflow-x-auto py-2">
       {STEPS.map((step, index) => (
-        <div key={step.id} className="flex items-center">
+        <div key={step.id} className="flex items-center flex-shrink-0">
           <div
             className={cn(
-              'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all',
+              'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 transition-all',
               currentStep > step.id
                 ? 'bg-primary border-primary text-primary-foreground'
                 : currentStep === step.id
@@ -257,14 +257,14 @@ export default function Booking() {
             )}
           >
             {currentStep > step.id ? (
-              <Check className="h-5 w-5" />
+              <Check className="h-4 w-4 sm:h-5 sm:w-5" />
             ) : (
-              <step.icon className="h-5 w-5" />
+              <step.icon className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
           </div>
           <span
             className={cn(
-              'mx-2 text-sm hidden sm:block',
+              'mx-1 sm:mx-2 text-xs sm:text-sm hidden sm:block',
               currentStep >= step.id ? 'text-foreground' : 'text-muted-foreground'
             )}
           >
@@ -273,7 +273,7 @@ export default function Booking() {
           {index < STEPS.length - 1 && (
             <div
               className={cn(
-                'w-8 h-0.5 mx-2',
+                'w-4 sm:w-8 h-0.5 mx-1 sm:mx-2',
                 currentStep > step.id ? 'bg-primary' : 'bg-muted-foreground/30'
               )}
             />

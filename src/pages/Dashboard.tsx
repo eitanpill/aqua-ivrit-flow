@@ -103,20 +103,20 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             {getGreeting()}! 👋
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             {isAdmin && "ברוכים הבאים לממשק הניהול של AquaFlow"}
             {isCoach && "ברוכים הבאים לממשק המאמן"}
             {isCustomer && !isStaff && "ברוכים הבאים ל-AquaFlow"}
           </p>
         </div>
         {isSuperAdmin && activeSchoolName && (
-          <Badge variant="outline" className="gap-2 py-2 px-3 text-sm">
+          <Badge variant="outline" className="gap-2 py-2 px-3 text-sm self-start">
             <Building2 className="h-4 w-4" />
             {activeSchoolName}
           </Badge>
@@ -124,34 +124,34 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid - Different for each role */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {/* Admin sees global stats */}
         {isAdmin && (
           <>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   סה"כ הכנסות
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-success/10 text-success">
-                  <DollarSign className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-success/10 text-success">
+                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">₪{stats?.totalRevenue?.toLocaleString() || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">₪{stats?.totalRevenue?.toLocaleString() || 0}</div>
               </CardContent>
             </Card>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   רישומים פעילים
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-                  <TrendingUp className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.activeEnrollments || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">{stats?.activeEnrollments || 0}</div>
               </CardContent>
             </Card>
           </>
@@ -161,29 +161,29 @@ export default function Dashboard() {
         {(isAdmin || isCoach) && (
           <>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  שחיינים רשומים
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                  שחיינים
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-accent/10 text-accent">
-                  <Users className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-accent/10 text-accent">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.totalSwimmers || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">{stats?.totalSwimmers || 0}</div>
               </CardContent>
             </Card>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   שיעורים היום
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
-                  <Calendar className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.todaySessions || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">{stats?.todaySessions || 0}</div>
               </CardContent>
             </Card>
           </>
@@ -192,29 +192,29 @@ export default function Dashboard() {
         {isAdmin && (
           <>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  בריכות פעילות
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                  בריכות
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-                  <MapPin className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                  <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.totalLocations || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">{stats?.totalLocations || 0}</div>
               </CardContent>
             </Card>
             <Card className="card-hover border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   מאמנים
                 </CardTitle>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-secondary/10 text-secondary">
-                  <Waves className="h-5 w-5" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center bg-secondary/10 text-secondary">
+                  <Waves className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.totalCoaches || 0}</div>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-xl sm:text-3xl font-bold">{stats?.totalCoaches || 0}</div>
               </CardContent>
             </Card>
           </>
@@ -228,7 +228,7 @@ export default function Dashboard() {
 
       {/* Staff Dashboard */}
       {(isAdmin || isCoach) && (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle>שיעורים קרובים</CardTitle>
@@ -237,13 +237,13 @@ export default function Dashboard() {
               {upcomingSessions?.length ? (
                 <div className="space-y-4">
                   {upcomingSessions.map((session: any) => (
-                    <div key={session.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                      <div className="h-12 w-12 rounded-lg gradient-primary flex items-center justify-center">
-                        <Waves className="h-6 w-6 text-primary-foreground" />
+                    <div key={session.id} className="flex items-center gap-3 sm:gap-4 p-2 sm:p-3 rounded-lg bg-muted/50">
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
+                        <Waves className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{session.class_type?.name || "שיעור"}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{session.class_type?.name || "שיעור"}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {new Date(session.start_time).toLocaleTimeString("he-IL", {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -297,7 +297,7 @@ export default function Dashboard() {
 
       {/* Emergency Operations - Admin Only */}
       {isAdmin && (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
           <EmergencyOperations />
         </div>
       )}
