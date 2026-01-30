@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSchool } from '@/contexts/SchoolContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ export default function Calendar() {
   const queryClient = useQueryClient();
   const { user, isCoach, isAdmin } = useAuth();
   const { activeSchoolId, isLoadingSchool } = useSchool();
+  const { notifyCancellation } = useNotifications();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedCoach, setSelectedCoach] = useState('all');
@@ -130,14 +132,18 @@ export default function Calendar() {
     mutationFn: async (sessionId: string) => {
       const { error } = await (supabase
         .from('sessions' as any)
-        .update({ status: 'cancelled' } as any)
+        .update({ status: 'cancelled', is_cancelled: true } as any)
         .eq('id', sessionId) as any);
 
       if (error) throw error;
+      return sessionId;
     },
-    onSuccess: () => {
+    onSuccess: async (sessionId) => {
       queryClient.invalidateQueries({ queryKey: ['sessions', activeSchoolId] });
       toast.success('השיעור בוטל בהצלחה');
+      
+      // Send cancellation notifications to all enrolled parents
+      await notifyCancellation(sessionId);
     },
     onError: () => {
       toast.error('שגיאה בביטול השיעור');

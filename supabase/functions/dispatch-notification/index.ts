@@ -44,6 +44,9 @@ const eventTypeDescriptions: Record<string, string> = {
   makeup_class_available: "שיעור השלמה זמין",
   payment_due: "תזכורת תשלום",
   test_notification: "הודעת בדיקה",
+  coach_substituted: "החלפת מאמן",
+  session_time_changed: "שינוי שעת שיעור",
+  daily_reminder: "תזכורת יומית לשיעור",
 };
 
 serve(async (req) => {
@@ -107,6 +110,10 @@ serve(async (req) => {
     if (data.coach_name) contextParts.push(`שם המאמן: ${data.coach_name}`);
     if (data.class_type) contextParts.push(`סוג השיעור: ${data.class_type}`);
     if (data.location) contextParts.push(`מיקום: ${data.location}`);
+    if (data.original_coach_name) contextParts.push(`מאמן מקורי: ${data.original_coach_name}`);
+    if (data.new_coach_name) contextParts.push(`מאמן חדש: ${data.new_coach_name}`);
+    if (data.new_time) contextParts.push(`שעה חדשה: ${data.new_time}`);
+    if (data.old_time) contextParts.push(`שעה מקורית: ${data.old_time}`);
 
     const contextString = contextParts.length > 0 
       ? contextParts.join("\n") 
