@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Waves, CreditCard, RefreshCw, Loader2, CheckCircle2, ExternalLink, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,6 +19,8 @@ export default function SubscriptionRequired() {
   const [isPaid, setIsPaid] = useState(false);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
+  const [checkEmail, setCheckEmail] = useState("");
+  const [showEmailInput, setShowEmailInput] = useState(false);
 
   // Check for payment failure from redirect
   useEffect(() => {
@@ -61,9 +64,58 @@ export default function SubscriptionRequired() {
         setTimeout(() => {
           navigate("/auth/setup-school", { replace: true });
         }, 1500);
+      } else {
+        toast({
+          title: "לא נמצא תשלום",
+          description: "לא זוהה תשלום עבור החשבון שלך. נסה שוב לאחר השלמת התשלום.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error checking payment:", error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  // Check payment by email address
+  const checkPaymentByEmail = async () => {
+    if (!checkEmail.trim()) {
+      toast({
+        title: "נדרש אי-מייל",
+        description: "אנא הזן את כתובת האי-מייל איתה ביצעת את התשלום",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsChecking(true);
+    try {
+      // Check if there's a user with this email who has paid
+      const { data: authUser } = await supabase.auth.getUser();
+      const currentEmail = authUser?.user?.email?.toLowerCase();
+      const searchEmail = checkEmail.trim().toLowerCase();
+
+      // If searching for a different email than current user
+      if (currentEmail !== searchEmail) {
+        toast({
+          title: "אי-מייל שונה",
+          description: "האי-מייל שהזנת שונה מהחשבון המחובר. אם שילמת עם אי-מייל אחר, אנא התחבר עם אותו חשבון.",
+          variant: "destructive",
+        });
+        setIsChecking(false);
+        return;
+      }
+
+      // Check current user's payment status
+      await checkPaymentStatus();
+    } catch (error) {
+      console.error("Error checking payment by email:", error);
+      toast({
+        title: "שגיאה בבדיקה",
+        description: "אירעה שגיאה בבדיקת סטטוס התשלום. נסה שוב.",
+        variant: "destructive",
+      });
     } finally {
       setIsChecking(false);
     }
@@ -217,26 +269,58 @@ export default function SubscriptionRequired() {
             )}
           </Button>
 
-          <div className="text-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={checkPaymentStatus}
-              disabled={isChecking}
-              className="text-muted-foreground"
-            >
-              {isChecking ? (
-                <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                  בודק סטטוס תשלום...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="ml-2 h-4 w-4" />
-                  כבר שילמתי - בדוק שוב
-                </>
-              )}
-            </Button>
+          <div className="text-center space-y-3">
+            {!showEmailInput ? (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowEmailInput(true)}
+                className="text-muted-foreground"
+              >
+                <RefreshCw className="ml-2 h-4 w-4" />
+                כבר שילמתי - בדוק שוב
+              </Button>
+            ) : (
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  הזן את האי-מייל איתו ביצעת את התשלום:
+                </p>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={checkEmail}
+                  onChange={(e) => setCheckEmail(e.target.value)}
+                  className="text-center"
+                  dir="ltr"
+                />
+                <div className="flex gap-2 justify-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setShowEmailInput(false);
+                      setCheckEmail("");
+                    }}
+                  >
+                    ביטול
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={checkPaymentByEmail}
+                    disabled={isChecking}
+                  >
+                    {isChecking ? (
+                      <>
+                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        בודק...
+                      </>
+                    ) : (
+                      "בדוק תשלום"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="text-xs text-center text-muted-foreground">
