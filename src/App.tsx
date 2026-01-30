@@ -63,7 +63,6 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <DemoBanner />
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/setup-school" element={<SetupSchool />} />
@@ -81,7 +80,10 @@ const App = () => (
                   <Route
                     element={
                       <ProtectedRoute>
-                        <AppLayout />
+                        <>
+                          <DemoBanner />
+                          <AppLayout />
+                        </>
                       </ProtectedRoute>
                     }
                   >
