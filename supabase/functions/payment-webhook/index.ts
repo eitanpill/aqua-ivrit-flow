@@ -5,6 +5,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rate limiting: track requests per IP
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 100; // requests
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in ms
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
 // Fixed subscription link for school creation
 const SCHOOL_SUBSCRIPTION_LINK = "https://mrng.to/3Q95CZQDbV";
 
@@ -24,6 +46,40 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ===== SECURITY: Token-based authentication =====
+    const url = new URL(req.url);
+    const providedToken = url.searchParams.get('token');
+    const expectedToken = Deno.env.get('PAYMENT_WEBHOOK_TOKEN');
+    
+    if (!expectedToken) {
+      console.error('[payment-webhook] PAYMENT_WEBHOOK_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!providedToken || providedToken !== expectedToken) {
+      console.warn('[payment-webhook] Invalid or missing token');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== SECURITY: Rate limiting =====
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    if (!checkRateLimit(clientIP)) {
+      console.warn('[payment-webhook] Rate limit exceeded for IP:', clientIP);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -32,8 +88,8 @@ Deno.serve(async (req) => {
     // Parse the incoming payload from Morning
     const payload = await req.json();
     
-    // Log webhook receipt
-    console.log('[payment-webhook] Received payload:', JSON.stringify(payload));
+    // Log webhook receipt (without sensitive data)
+    console.log('[payment-webhook] Received webhook from IP:', clientIP);
 
     // Extract relevant fields from Morning webhook
     // Morning sends two webhook types - document webhook and payment-link webhook
@@ -68,13 +124,10 @@ Deno.serve(async (req) => {
                         payload.description?.includes('הוראת קבע');
 
     console.log('[payment-webhook] Parsed data:', { 
-      email, 
+      email: email ? email.substring(0, 3) + '***' : null, // Mask email in logs
       amount, 
       docNumber, 
-      transactionId, 
-      customerName, 
-      customerPhone, 
-      invoiceUrl: invoiceUrl ? 'exists' : 'none',
+      hasInvoiceUrl: !!invoiceUrl,
       isRecurring 
     });
 
