@@ -1,4 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 
@@ -14,8 +15,10 @@ const DemoModeContext = createContext<DemoModeContextType | undefined>(undefined
 export function DemoModeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   
-  const isDemoMode = user?.email === DEMO_EMAIL;
+  // Demo mode is active if user is demo@aquaflow.app OR if ?demo=true is in URL
+  const isDemoMode = user?.email === DEMO_EMAIL || searchParams.get("demo") === "true";
 
   /**
    * Block demo actions - provides UI feedback.
