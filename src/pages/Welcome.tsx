@@ -1,40 +1,22 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Waves, Building2, Eye, Loader2, ArrowLeft, Sparkles } from "lucide-react";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Waves, Building2, Eye, ArrowLeft, Sparkles, CreditCard } from "lucide-react";
 
 export default function Welcome() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  const [isCreatingSchool, setIsCreatingSchool] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [schoolName, setSchoolName] = useState("");
 
-  // Check if user already has a school
+  // Check if user already has a school or has paid for subscription
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user-profile-welcome", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("school_id, first_name, last_name")
+        .select("school_id, first_name, last_name, subscription_paid")
         .eq("id", user.id)
         .single();
       
@@ -56,61 +38,20 @@ export default function Welcome() {
     return null;
   }
 
+  // If user has paid but no school, redirect to school setup
+  if (!isLoading && profile?.subscription_paid && !profile?.school_id) {
+    navigate("/auth/setup-school", { replace: true });
+    return null;
+  }
+
   const handleDemoMode = () => {
     // Navigate to dashboard with demo query param
     navigate("/dashboard?demo=true");
   };
 
-  const handleCreateSchool = async () => {
-    if (!schoolName.trim()) {
-      toast({
-        title: "שגיאה",
-        description: "יש להזין שם לבית הספר",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsCreatingSchool(true);
-
-    try {
-      const { data: schoolId, error } = await supabase.rpc("create_school_and_owner", {
-        p_school_name: schoolName.trim(),
-        p_owner_first_name: profile?.first_name || "משתמש",
-        p_owner_last_name: profile?.last_name || "חדש",
-      });
-
-      if (error || !schoolId) {
-        console.error("School creation error:", error);
-        toast({
-          title: "שגיאה ביצירת בית הספר",
-          description: error?.message || "נסה שוב מאוחר יותר",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Invalidate queries to refresh profile
-      await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-      await queryClient.invalidateQueries({ queryKey: ["user-profile-welcome"] });
-      await queryClient.invalidateQueries({ queryKey: ["user-profile-school-check"] });
-
-      toast({
-        title: "נוצר בהצלחה! 🎉",
-        description: `בית הספר "${schoolName}" מוכן לעבודה`,
-      });
-
-      navigate("/dashboard", { replace: true });
-    } catch (error: any) {
-      console.error("Create school error:", error);
-      toast({
-        title: "שגיאה",
-        description: error.message || "אירעה שגיאה ביצירת בית הספר",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingSchool(false);
-    }
+  const handleCreateSchool = () => {
+    // Navigate to subscription payment page
+    navigate("/auth/subscription");
   };
 
   if (isLoading) {
@@ -171,10 +112,10 @@ export default function Welcome() {
             </CardContent>
           </Card>
 
-          {/* Option B: Create School */}
+          {/* Option B: Create School (requires subscription) */}
           <Card 
             className="cursor-pointer transition-all hover:shadow-xl hover:border-primary/50 border-2 group bg-gradient-to-br from-primary/5 to-transparent"
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleCreateSchool}
           >
             <CardContent className="p-6 flex flex-col items-center text-center h-full">
               <div className="h-16 w-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform relative">
@@ -185,7 +126,11 @@ export default function Welcome() {
               <CardDescription className="text-base">
                 מוכן לצאת לדרך? הקמת סביבה חדשה ונקייה לניהול העסק שלך.
               </CardDescription>
-              <div className="mt-auto pt-4">
+              <div className="mt-auto pt-4 space-y-1">
+                <span className="inline-flex items-center gap-2 text-primary font-medium text-sm">
+                  <CreditCard className="h-4 w-4" />
+                  נדרשת הקמת הוראת קבע
+                </span>
                 <span className="inline-flex items-center gap-2 text-primary font-medium text-sm">
                   בואו נתחיל
                   <ArrowLeft className="h-4 w-4" />
@@ -208,54 +153,6 @@ export default function Welcome() {
           </button>
         </div>
       </div>
-
-      {/* Create School Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="max-w-md" dir="rtl">
-          <DialogHeader>
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl gradient-primary mb-2">
-              <Building2 className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <DialogTitle className="text-xl text-center">הקמת בית ספר חדש</DialogTitle>
-            <DialogDescription className="text-center">
-              בחר שם לבית הספר שלך. תוכל לשנות אותו מאוחר יותר.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="school-name">שם בית הספר *</Label>
-              <Input
-                id="school-name"
-                placeholder="לדוגמה: בית ספר לשחייה - תל אביב"
-                value={schoolName}
-                onChange={(e) => setSchoolName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateSchool();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-
-            <Button 
-              className="w-full" 
-              onClick={handleCreateSchool}
-              disabled={isCreatingSchool || !schoolName.trim()}
-            >
-              {isCreatingSchool ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                  יוצר בית ספר...
-                </>
-              ) : (
-                "צור בית ספר והמשך"
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

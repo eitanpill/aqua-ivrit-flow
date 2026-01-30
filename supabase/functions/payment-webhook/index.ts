@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Fixed subscription link for school creation
+const SCHOOL_SUBSCRIPTION_LINK = "https://mrng.to/3Q95CZQDbV";
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -57,7 +60,23 @@ Deno.serve(async (req) => {
       payload.documentUrl ||
       null;
 
-    console.log('[payment-webhook] Parsed data:', { email, amount, docNumber, transactionId, customerName, customerPhone, invoiceUrl: invoiceUrl ? 'exists' : 'none' });
+    // Check if this is a recurring/standing order payment (הוראת קבע)
+    const isRecurring = payload.type === 'recurring' || 
+                        payload.paymentType === 'recurring' ||
+                        payload.isRecurring === true ||
+                        payload.docType === 320 || // Morning recurring invoice type
+                        payload.description?.includes('הוראת קבע');
+
+    console.log('[payment-webhook] Parsed data:', { 
+      email, 
+      amount, 
+      docNumber, 
+      transactionId, 
+      customerName, 
+      customerPhone, 
+      invoiceUrl: invoiceUrl ? 'exists' : 'none',
+      isRecurring 
+    });
 
     if (!email) {
       console.error('[payment-webhook] No email found in payload');
@@ -74,6 +93,7 @@ Deno.serve(async (req) => {
     
     let userId: string | null = null;
     let schoolId: string | null = null;
+    let userHasSchool = false;
 
     if (!authError && authUsers?.users) {
       const foundUser = authUsers.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
@@ -94,12 +114,33 @@ Deno.serve(async (req) => {
     if (userId) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('school_id')
+        .select('school_id, subscription_paid')
         .eq('id', userId)
         .single();
       
       if (profile?.school_id) {
         schoolId = profile.school_id;
+        userHasSchool = true;
+      }
+
+      // ===== NEW: Mark user as subscription_paid for school creation =====
+      // This enables users to create a new school after completing payment
+      if (!profile?.subscription_paid) {
+        console.log('[payment-webhook] Marking user as subscription_paid:', userId);
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ 
+            subscription_paid: true,
+            subscription_paid_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+        
+        if (updateError) {
+          console.error('[payment-webhook] Error updating subscription_paid:', updateError);
+        } else {
+          console.log('[payment-webhook] User marked as subscription_paid successfully');
+        }
       }
     }
 
@@ -112,10 +153,12 @@ Deno.serve(async (req) => {
           school_id: schoolId,
           amount: amount,
           status: 'completed',
-          type: 'credit_purchase',
+          type: isRecurring ? 'subscription_payment' : 'credit_purchase',
           payment_method: 'morning_page',
           reference_id: docNumber || transactionId,
-          description: `תשלום דרך Morning - חשבונית ${docNumber}`,
+          description: isRecurring 
+            ? `תשלום הוראת קבע - הקמת בית ספר - חשבונית ${docNumber}`
+            : `תשלום דרך Morning - חשבונית ${docNumber}`,
         })
         .select()
         .single();
@@ -151,89 +194,64 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Step 3: Grant access based on amount
-      if (amount >= 400) {
-        // High amount = Subscription (monthly/yearly based on logic)
-        // For now, create a simple log - actual subscription logic depends on product
-        console.log('[payment-webhook] High-value payment detected (>=400), subscription logic would apply');
-        
-        // You could insert a subscription record here if you have product_id and swimmer_id
-        // For now, we just log it - actual implementation depends on your business logic
-        
-      } else if (amount > 0) {
-        // Lower amount = Add credits to wallet
-        console.log('[payment-webhook] Adding credits to wallet for amount:', amount);
-        
-        // Calculate credits (1 credit per payment for now, adjust as needed)
-        const creditsToAdd = 1;
+      // Step 3: Grant access based on amount (only for existing school customers)
+      if (userHasSchool) {
+        if (amount >= 400) {
+          // High amount = Subscription (monthly/yearly based on logic)
+          // For now, create a simple log - actual subscription logic depends on product
+          console.log('[payment-webhook] High-value payment detected (>=400), subscription logic would apply');
+          
+        } else if (amount > 0) {
+          // Lower amount = Add credits to wallet
+          console.log('[payment-webhook] Adding credits to wallet for amount:', amount);
+          
+          // Calculate credits (1 credit per payment for now, adjust as needed)
+          const creditsToAdd = 1;
 
-        // Check if wallet exists
-        const { data: existingWallet } = await supabase
-          .from('customer_wallets')
-          .select('id, credits_balance')
-          .eq('user_id', userId)
-          .single();
-
-        if (existingWallet) {
-          // Update existing wallet
-          const newBalance = (existingWallet.credits_balance || 0) + creditsToAdd;
-          const { error: walletError } = await supabase
+          // Check if wallet exists
+          const { data: existingWallet } = await supabase
             .from('customer_wallets')
-            .update({ 
-              credits_balance: newBalance,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingWallet.id);
-
-          if (walletError) {
-            console.error('[payment-webhook] Wallet update error:', walletError);
-          } else {
-            console.log('[payment-webhook] Wallet updated, new balance:', newBalance);
-          }
-
-          // Log wallet transaction
-          await supabase
-            .from('wallet_transactions')
-            .insert({
-              wallet_id: existingWallet.id,
-              amount: creditsToAdd,
-              balance_after: newBalance,
-              type: 'credit',
-              description: `קרדיט מתשלום Morning - ${docNumber}`,
-              reference_id: docNumber || transactionId,
-            });
-
-        } else {
-          // Create new wallet
-          const { data: newWallet, error: createError } = await supabase
-            .from('customer_wallets')
-            .insert({
-              user_id: userId,
-              credits_balance: creditsToAdd,
-            })
-            .select()
+            .select('id, credits_balance')
+            .eq('user_id', userId)
             .single();
 
-          if (createError) {
-            console.error('[payment-webhook] Wallet creation error:', createError);
-          } else {
-            console.log('[payment-webhook] New wallet created with balance:', creditsToAdd);
+          if (existingWallet) {
+            // Update existing wallet
+            const newBalance = (existingWallet.credits_balance || 0) + creditsToAdd;
+            const { error: walletError } = await supabase
+              .from('customer_wallets')
+              .update({ 
+                credits_balance: newBalance,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingWallet.id);
 
-            // Log initial wallet transaction
-            if (newWallet) {
-              await supabase
-                .from('wallet_transactions')
-                .insert({
-                  wallet_id: newWallet.id,
-                  amount: creditsToAdd,
-                  balance_after: creditsToAdd,
-                  type: 'credit',
-                  description: `קרדיט ראשוני מתשלום Morning - ${docNumber}`,
-                  reference_id: docNumber || transactionId,
-                });
+            if (walletError) {
+              console.error('[payment-webhook] Wallet update error:', walletError);
+            } else {
+              console.log('[payment-webhook] Wallet updated, new balance:', newBalance);
+            }
+
+          } else {
+            // Create new wallet
+            const { data: newWallet, error: createError } = await supabase
+              .from('customer_wallets')
+              .insert({
+                user_id: userId,
+                credits_balance: creditsToAdd,
+              })
+              .select()
+              .single();
+
+            if (createError) {
+              console.error('[payment-webhook] Wallet creation error:', createError);
+            } else {
+              console.log('[payment-webhook] New wallet created with balance:', creditsToAdd);
             }
           }
         }
+      } else {
+        console.log('[payment-webhook] User has no school yet - subscription payment for school creation');
       }
     }
 
