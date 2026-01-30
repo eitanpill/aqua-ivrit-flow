@@ -27,6 +27,71 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+// Generate a temporary password
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
+// Send welcome notification via webhook
+interface WelcomeNotificationData {
+  fullName: string;
+  phone: string;
+  email: string;
+  tempPassword: string;
+  loginUrl: string;
+}
+
+async function sendWelcomeNotification(data: WelcomeNotificationData): Promise<void> {
+  const webhookUrl = Deno.env.get('PLATFORM_WELCOME_WEBHOOK_URL');
+  
+  if (!webhookUrl) {
+    console.log('[payment-webhook] No PLATFORM_WELCOME_WEBHOOK_URL configured, skipping notification');
+    return;
+  }
+
+  const payload = {
+    event_type: 'new_subscription',
+    timestamp: new Date().toISOString(),
+    user: {
+      full_name: data.fullName,
+      phone: data.phone,
+      email: data.email,
+    },
+    credentials: {
+      login_url: data.loginUrl,
+      username: data.email,
+      temporary_password: data.tempPassword,
+    },
+    message: `שלום ${data.fullName}! 🎉\n\nתודה שהצטרפת ל-AquaManager!\n\nפרטי ההתחברות שלך:\n📧 שם משתמש: ${data.email}\n🔑 סיסמה זמנית: ${data.tempPassword}\n\n🔗 קישור להתחברות:\n${data.loginUrl}\n\nמומלץ להחליף את הסיסמה לאחר ההתחברות הראשונה.\n\nבהצלחה!`
+  };
+
+  try {
+    console.log('[payment-webhook] Sending welcome notification to webhook');
+    
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[payment-webhook] Webhook failed:', response.status, errorText);
+    } else {
+      console.log('[payment-webhook] Welcome notification sent successfully');
+    }
+  } catch (error) {
+    console.error('[payment-webhook] Error sending webhook:', error);
+  }
+}
+
 // Fixed subscription link for school creation
 const SCHOOL_SUBSCRIPTION_LINK = "https://mrng.to/3Q95CZQDbV";
 
@@ -169,7 +234,7 @@ Deno.serve(async (req) => {
     if (userId) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('school_id, subscription_paid')
+        .select('school_id, subscription_paid, first_name, last_name, phone')
         .eq('id', userId)
         .single();
       
@@ -195,6 +260,36 @@ Deno.serve(async (req) => {
           console.error('[payment-webhook] Error updating subscription_paid:', updateError);
         } else {
           console.log('[payment-webhook] User marked as subscription_paid successfully');
+          
+          // Generate temp password and send welcome notification for new subscribers
+          const tempPassword = generateTempPassword();
+          
+          // Update user password
+          const { error: passwordError } = await supabase.auth.admin.updateUserById(userId, {
+            password: tempPassword
+          });
+          
+          if (passwordError) {
+            console.error('[payment-webhook] Error setting temp password:', passwordError);
+          } else {
+            console.log('[payment-webhook] Temporary password set for user');
+            
+            // Get full name from profile or webhook payload
+            const fullName = profile?.first_name || profile?.last_name
+              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+              : customerName || 'לקוח יקר';
+            
+            const userPhone = profile?.phone || customerPhone || '';
+            
+            // Send welcome notification via webhook
+            await sendWelcomeNotification({
+              fullName,
+              phone: userPhone,
+              email: email,
+              tempPassword,
+              loginUrl: 'https://aqua-ivrit-flow.lovable.app/auth'
+            });
+          }
         }
       }
     }
