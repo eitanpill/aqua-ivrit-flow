@@ -58,11 +58,11 @@ const App = () => (
     <DeviceProvider>
       <AuthProvider>
         <SchoolProvider>
-          <DemoModeProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <DemoModeProvider>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/setup-school" element={<SetupSchool />} />
@@ -112,9 +112,9 @@ const App = () => (
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </DemoModeProvider>
+              </DemoModeProvider>
+            </BrowserRouter>
+          </TooltipProvider>
         </SchoolProvider>
       </AuthProvider>
     </DeviceProvider>
