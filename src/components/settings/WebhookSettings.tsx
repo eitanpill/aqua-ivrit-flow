@@ -287,10 +287,13 @@ export function WebhookSettings() {
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
+              { event: "daily_reminder", label: "תזכורת יומית לשיעור", description: "בבוקר יום השיעור - מאמן, שעה, בריכה" },
               { event: "class_cancelled", label: "ביטול שיעור", description: "כשמאמן או מנהל מבטל שיעור" },
+              { event: "coach_substituted", label: "החלפת מאמן", description: "כשמאמן מוחלף בשיעור" },
+              { event: "session_time_changed", label: "שינוי שעת שיעור", description: "כשזמן השיעור משתנה" },
               { event: "new_registration", label: "רישום חדש", description: "כששחיין נרשם לשיעור" },
               { event: "waitlist_spot_available", label: "מקום התפנה", description: "כשמקום מתפנה מרשימת ההמתנה" },
-              { event: "session_reminder", label: "תזכורת לשיעור", description: "תזכורת אוטומטית לפני שיעור" },
+              { event: "session_reminder", label: "תזכורת לשיעור", description: "תזכורת יום לפני השיעור" },
               { event: "makeup_class_available", label: "שיעור השלמה", description: "כששיעור השלמה זמין" },
               { event: "payment_due", label: "תזכורת תשלום", description: "תזכורת על תשלום ממתין" },
             ].map((item) => (

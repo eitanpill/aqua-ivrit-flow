@@ -29,7 +29,10 @@ export type NotificationType =
   | 'makeup_token_issued'
   | 'payment_received'
   | 'payment_reminder'
-  | 'welcome';
+  | 'welcome'
+  | 'coach_substituted'
+  | 'session_time_changed'
+  | 'daily_reminder';
 
 // Map notification types to webhook event types
 const NOTIFICATION_TO_EVENT_TYPE: Record<NotificationType, string> = {
@@ -42,6 +45,9 @@ const NOTIFICATION_TO_EVENT_TYPE: Record<NotificationType, string> = {
   payment_received: 'payment_due',
   payment_reminder: 'payment_due',
   welcome: 'new_registration',
+  coach_substituted: 'coach_substituted',
+  session_time_changed: 'session_time_changed',
+  daily_reminder: 'daily_reminder',
 };
 
 // Hebrew notification templates (fallback if AI is not available)
@@ -109,6 +115,33 @@ const NOTIFICATION_TEMPLATES: Record<NotificationType, (params: NotificationPara
     `נרשמת בהצלחה למערכת!\n` +
     `כעת תוכל/י להוסיף את הילדים ולהירשם לשיעורים.\n` +
     `נשמח לראותכם בבריכה! 💙🏊‍♂️`,
+
+  coach_substituted: (params) =>
+    `📢 עדכון לגבי השיעור\n` +
+    `שלום ${params.name},\n` +
+    `רצינו לעדכן שהמאמן/ת בשיעור של ${params.swimmerName || 'הילד/ה'} התחלף/ה.\n` +
+    `📅 ${params.sessionDate}\n` +
+    `⏰ ${params.sessionTime}\n` +
+    `👨‍🏫 המאמן/ת החדש/ה: ${params.coachName}\n` +
+    `נתראה בבריכה! 🏊‍♂️`,
+
+  session_time_changed: (params) =>
+    `📢 שינוי בשעת השיעור\n` +
+    `שלום ${params.name},\n` +
+    `רצינו לעדכן על שינוי בשעת השיעור של ${params.swimmerName || 'הילד/ה'}.\n` +
+    `📅 תאריך: ${params.sessionDate}\n` +
+    `⏰ שעה חדשה: ${params.sessionTime}\n` +
+    `📍 מיקום: ${params.locationName}\n` +
+    `נתראה! 💙`,
+
+  daily_reminder: (params) =>
+    `🏊‍♂️ תזכורת לשיעור היום!\n` +
+    `שלום ${params.name},\n` +
+    `לא לשכוח - היום יש שיעור ל${params.swimmerName}!\n` +
+    `⏰ שעה: ${params.sessionTime}\n` +
+    `📍 מיקום: ${params.locationName}\n` +
+    `👨‍🏫 מאמן/ת: ${params.coachName}\n` +
+    `נתראה בבריכה! 💙`,
 };
 
 /**

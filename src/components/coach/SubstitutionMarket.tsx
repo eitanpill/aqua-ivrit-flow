@@ -15,6 +15,7 @@ import {
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ interface Session {
 
 export function SubstitutionMarket() {
   const { user, isAdmin } = useAuth();
+  const { notifyCoachChange } = useNotifications();
   const queryClient = useQueryClient();
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string>('');
@@ -173,22 +175,30 @@ export function SubstitutionMarket() {
 
   // Approve substitution mutation (coach accepts shift)
   const acceptShiftMutation = useMutation({
-    mutationFn: async (substitutionId: string) => {
+    mutationFn: async (substitution: Substitution) => {
       const { data, error } = await (supabase.rpc as any)('approve_substitution', {
-        p_substitution_id: substitutionId,
+        p_substitution_id: substitution.id,
         p_sub_coach_id: user?.id,
       });
 
       if (error) throw error;
       const result = data as any;
       if (!result.success) throw new Error(result.error);
-      return result;
+      return { result, substitution };
     },
-    onSuccess: () => {
+    onSuccess: async ({ result, substitution }) => {
       queryClient.invalidateQueries({ queryKey: ['substitutions'] });
       queryClient.invalidateQueries({ queryKey: ['coach-sessions'] });
       toast.success('קיבלת את המשמרת בהצלחה!');
       setAcceptDialogOpen(false);
+      
+      // Notify parents about coach change
+      if (substitution.session?.id) {
+        const originalCoachName = `${substitution.original_coach?.first_name || ''} ${substitution.original_coach?.last_name || ''}`.trim();
+        const newCoachName = `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || 'מאמן חדש';
+        await notifyCoachChange(substitution.session.id, originalCoachName, newCoachName);
+      }
+      
       setSelectedSubstitution(null);
     },
     onError: (error: any) => {
@@ -198,7 +208,7 @@ export function SubstitutionMarket() {
 
   // Admin assign coach mutation
   const assignCoachMutation = useMutation({
-    mutationFn: async ({ substitutionId, coachId }: { substitutionId: string; coachId: string }) => {
+    mutationFn: async ({ substitutionId, coachId, substitution }: { substitutionId: string; coachId: string; substitution: Substitution }) => {
       const { data, error } = await (supabase.rpc as any)('approve_substitution', {
         p_substitution_id: substitutionId,
         p_sub_coach_id: coachId,
@@ -207,11 +217,26 @@ export function SubstitutionMarket() {
       if (error) throw error;
       const result = data as any;
       if (!result.success) throw new Error(result.error);
-      return result;
+      
+      // Fetch the new coach name
+      const { data: newCoach } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', coachId)
+        .single();
+      
+      return { result, substitution, newCoach };
     },
-    onSuccess: () => {
+    onSuccess: async ({ result, substitution, newCoach }) => {
       queryClient.invalidateQueries({ queryKey: ['substitutions'] });
       toast.success('המאמן שובץ בהצלחה');
+      
+      // Notify parents about coach change
+      if (substitution.session?.id) {
+        const originalCoachName = `${substitution.original_coach?.first_name || ''} ${substitution.original_coach?.last_name || ''}`.trim();
+        const newCoachName = newCoach ? `${newCoach.first_name || ''} ${newCoach.last_name || ''}`.trim() : 'מאמן חדש';
+        await notifyCoachChange(substitution.session.id, originalCoachName, newCoachName);
+      }
     },
     onError: (error: any) => {
       toast.error(error.message || 'שגיאה בשיבוץ המאמן');
@@ -424,6 +449,7 @@ export function SubstitutionMarket() {
                             assignCoachMutation.mutate({
                               substitutionId: sub.id,
                               coachId,
+                              substitution: sub,
                             });
                           }}
                         >
@@ -571,7 +597,7 @@ export function SubstitutionMarket() {
               ביטול
             </Button>
             <Button
-              onClick={() => selectedSubstitution && acceptShiftMutation.mutate(selectedSubstitution.id)}
+              onClick={() => selectedSubstitution && acceptShiftMutation.mutate(selectedSubstitution)}
               disabled={acceptShiftMutation.isPending}
             >
               {acceptShiftMutation.isPending ? (
