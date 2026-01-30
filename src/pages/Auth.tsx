@@ -99,8 +99,8 @@ export default function Auth() {
         if (profile?.school_id) {
           navigate("/dashboard");
         } else {
-          // User exists but has no school - they should be on create-school view
-          // Don't redirect, let ProtectedRoute handle it
+          // User exists but has no school - redirect to Welcome page
+          navigate("/welcome");
         }
       }
     });
@@ -115,6 +115,9 @@ export default function Auth() {
         
         if (profile?.school_id) {
           navigate("/dashboard");
+        } else {
+          // User exists but has no school - redirect to Welcome page
+          navigate("/welcome");
         }
       }
     });
