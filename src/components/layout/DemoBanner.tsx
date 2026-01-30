@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useDemoMode } from "@/hooks/useDemoMode";
+import { DemoRoleSwitcher } from "./DemoRoleSwitcher";
 
 export function DemoBanner() {
   const { isDemoMode } = useDemoMode();
@@ -24,6 +25,10 @@ export function DemoBanner() {
           <AlertTriangle className="h-4 w-4" />
           <span>מצב הדגמה - הנתונים הם להמחשה בלבד</span>
         </div>
+        
+        {/* Role Switcher - allows switching between admin/coach/customer views */}
+        <DemoRoleSwitcher />
+        
         <Button
           size="sm"
           variant="secondary"
