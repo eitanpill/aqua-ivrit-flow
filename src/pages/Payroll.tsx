@@ -73,16 +73,7 @@ export default function Payroll() {
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentDescription, setAdjustmentDescription] = useState("");
 
-  // Show loading state
-  if (isLoadingSchool) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // Fetch payroll summary
+  // Fetch payroll summary - MUST be before any conditional returns
   const { data: payrollData, isLoading } = useQuery({
     queryKey: ["payroll-summary", activeSchoolId, format(selectedMonth, "yyyy-MM-dd")],
     queryFn: async () => {
@@ -293,6 +284,15 @@ export default function Payroll() {
         }),
     },
   ];
+
+  // Show loading state - after all hooks
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
