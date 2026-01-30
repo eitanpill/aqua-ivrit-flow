@@ -46,25 +46,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // ===== SECURITY: Token-based authentication =====
+    // ===== SECURITY: Token-based authentication (optional for Morning webhooks) =====
     const url = new URL(req.url);
     const providedToken = url.searchParams.get('token');
     const expectedToken = Deno.env.get('PAYMENT_WEBHOOK_TOKEN');
     
-    if (!expectedToken) {
-      console.error('[payment-webhook] PAYMENT_WEBHOOK_TOKEN not configured');
-      return new Response(
-        JSON.stringify({ error: 'Webhook not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Token validation is optional - Morning doesn't support adding tokens to webhook URLs
+    // We validate the token if provided, but allow requests without token from Morning
+    // Morning webhooks are validated by checking for valid payload structure instead
+    const hasValidToken = expectedToken && providedToken === expectedToken;
     
-    if (!providedToken || providedToken !== expectedToken) {
-      console.warn('[payment-webhook] Invalid or missing token');
+    if (providedToken && !hasValidToken) {
+      // Token was provided but is invalid - reject
+      console.warn('[payment-webhook] Invalid token provided');
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    
+    if (!providedToken) {
+      console.log('[payment-webhook] No token provided - assuming Morning webhook callback');
     }
 
     // ===== SECURITY: Rate limiting =====
