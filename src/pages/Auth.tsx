@@ -35,20 +35,25 @@ interface SchoolInfo {
   logo_url: string | null;
 }
 
-type AuthView = 'landing' | 'login' | 'signup' | 'create-school';
+type AuthView = 'landing' | 'login' | 'signup' | 'create-school' | 'reset-password';
 
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const inviteSlug = searchParams.get("invite");
+  const authType = searchParams.get("type"); // For password recovery
   
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [invitedSchool, setInvitedSchool] = useState<SchoolInfo | null>(null);
   const [isLoadingSchool, setIsLoadingSchool] = useState(!!inviteSlug);
   const [schoolNotFound, setSchoolNotFound] = useState(false);
-  const [authView, setAuthView] = useState<AuthView>(inviteSlug ? 'signup' : 'landing');
+  const [authView, setAuthView] = useState<AuthView>(
+    authType === 'recovery' ? 'reset-password' : (inviteSlug ? 'signup' : 'landing')
+  );
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ 
@@ -553,6 +558,110 @@ export default function Auth() {
                 ← חזרה לדף הראשי
               </button>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Password Reset View
+  if (authView === 'reset-password') {
+    const handleResetPassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      if (newPassword.length < 6) {
+        toast({
+          title: "שגיאה",
+          description: "הסיסמה חייבת להכיל לפחות 6 תווים",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        toast({
+          title: "שגיאה",
+          description: "הסיסמאות אינן תואמות",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      
+      setIsLoading(false);
+      
+      if (error) {
+        toast({
+          title: "שגיאה",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "הסיסמה עודכנה בהצלחה!",
+          description: "כעת תוכל להתחבר עם הסיסמה החדשה",
+        });
+        navigate("/dashboard");
+      }
+    };
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+        </div>
+
+        <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary aqua-glow">
+              <Lock className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">איפוס סיסמה</CardTitle>
+              <CardDescription>הזן סיסמה חדשה לחשבונך</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">סיסמה חדשה</Label>
+                <div className="relative">
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pr-10"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">אימות סיסמה</Label>
+                <div className="relative">
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pr-10"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
+                {isLoading ? "מעדכן..." : "עדכן סיסמה"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
