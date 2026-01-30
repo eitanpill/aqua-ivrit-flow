@@ -235,8 +235,10 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For create-school flow, we only need basic signup - school creation happens on Welcome page
-    const schema = signupSchema;
+    // For create-school flow, validate all fields including school name
+    const schema = authView === 'create-school' && !invitedSchool 
+      ? schoolOwnerSchema 
+      : signupSchema;
     const result = schema.safeParse(signupForm);
     
     if (!result.success) {
@@ -256,7 +258,7 @@ export default function Auth() {
         email: signupForm.email,
         password: signupForm.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/welcome`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             first_name: signupForm.firstName,
             last_name: signupForm.lastName,
@@ -318,7 +320,42 @@ export default function Auth() {
         }
       }
 
-      // For regular signup (create-school flow), redirect to Welcome page
+      // For create-school flow, create the school immediately with all details
+      if (authView === 'create-school' && signupForm.schoolName) {
+        const { data: schoolId, error: schoolError } = await supabase.rpc(
+          'create_school_and_owner' as any,
+          {
+            p_school_name: signupForm.schoolName,
+            p_owner_first_name: signupForm.firstName,
+            p_owner_last_name: signupForm.lastName,
+            p_school_phone: signupForm.schoolPhone || null,
+            p_school_email: signupForm.schoolEmail || null,
+            p_pool_name: signupForm.poolName || null,
+            p_pool_address: signupForm.poolAddress || null,
+          }
+        );
+
+        if (schoolError) {
+          console.error('Create school error:', schoolError);
+          toast({
+            title: "שגיאה ביצירת בית הספר",
+            description: schoolError.message || "נסה שוב",
+            variant: "destructive",
+          });
+          // Still redirect to welcome page as fallback
+          navigate("/welcome", { replace: true });
+          return;
+        }
+
+        toast({
+          title: "בית הספר נוצר בהצלחה! 🎉",
+          description: `ברוכים הבאים ל-${signupForm.schoolName}`,
+        });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // Fallback - redirect to Welcome page
       toast({
         title: "נרשמת בהצלחה! 🎉",
         description: "בואו נגדיר את החשבון שלך",
