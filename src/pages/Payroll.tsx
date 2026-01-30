@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { 
   Wallet, 
@@ -19,7 +20,8 @@ import {
   ChevronRight, 
   ChevronLeft,
   Users,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Settings
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +34,7 @@ import {
 import { format, startOfMonth, subMonths, addMonths } from "date-fns";
 import { he } from "date-fns/locale";
 import { AdaptiveTable, type AdaptiveColumn, type AdaptiveAction } from "@/components/ui/adaptive-table";
+import { CoachRatesManager } from "@/components/payroll/CoachRatesManager";
 
 interface CoachPayroll {
   coach_id: string;
@@ -305,6 +308,21 @@ export default function Payroll() {
         </Button>
       </div>
 
+      {/* Tabs for Report and Settings */}
+      <Tabs defaultValue="report" className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="report" className="gap-2">
+            <Wallet className="h-4 w-4" />
+            דוח חודשי
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings className="h-4 w-4" />
+            הגדרות שכר
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="report" className="space-y-6">
+
       {/* Month Selector */}
       <Card className="border-border/50">
         <CardContent className="pt-6">
@@ -442,6 +460,12 @@ export default function Payroll() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <CoachRatesManager />
+        </TabsContent>
+      </Tabs>
 
       {/* Adjustment Dialog */}
       <Dialog open={adjustmentDialog.open} onOpenChange={(open) => !open && resetAdjustmentDialog()}>

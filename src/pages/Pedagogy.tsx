@@ -6,16 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +17,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, GraduationCap, CalendarDays, Edit, Trash2, CalendarIcon, Loader2 } from "lucide-react";
+import { Plus, GraduationCap, CalendarDays, Trash2, CalendarIcon, Loader2, BookOpen, Edit } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { ClassLevelsManager } from "@/components/pedagogy/ClassLevelsManager";
+import { ClassTypesManager } from "@/components/pedagogy/ClassTypesManager";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface Season {
   id: string;
@@ -197,10 +193,14 @@ export default function Pedagogy() {
       </div>
 
       <Tabs defaultValue="levels" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="levels" className="gap-2">
             <GraduationCap className="h-4 w-4" />
             רמות לימוד
+          </TabsTrigger>
+          <TabsTrigger value="types" className="gap-2">
+            <BookOpen className="h-4 w-4" />
+            סוגי שיעורים
           </TabsTrigger>
           <TabsTrigger value="seasons" className="gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -210,111 +210,12 @@ export default function Pedagogy() {
 
         {/* Class Levels Tab */}
         <TabsContent value="levels" className="mt-6">
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                רמות לימוד
-              </CardTitle>
-              <Dialog open={isLevelDialogOpen} onOpenChange={setIsLevelDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gradient-primary gap-2">
-                    <Plus className="h-4 w-4" />
-                    הוסף רמה
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>הוספת רמה חדשה</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleLevelSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="level-name">שם הרמה *</Label>
-                      <Input
-                        id="level-name"
-                        placeholder='לדוגמה: "הסתגלות", "כריש"'
-                        value={levelForm.name}
-                        onChange={(e) => setLevelForm({ ...levelForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="level-desc">תיאור</Label>
-                      <Textarea
-                        id="level-desc"
-                        placeholder="תיאור הרמה ודרישות"
-                        value={levelForm.description}
-                        onChange={(e) => setLevelForm({ ...levelForm, description: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="level-order">סדר מיון</Label>
-                      <Input
-                        id="level-order"
-                        type="number"
-                        placeholder="0"
-                        value={levelForm.sort_order}
-                        onChange={(e) => setLevelForm({ ...levelForm, sort_order: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="flex gap-2 pt-4">
-                      <Button type="submit" className="flex-1 gradient-primary" disabled={createLevelMutation.isPending}>
-                        {createLevelMutation.isPending ? "מוסיף..." : "הוסף"}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setIsLevelDialogOpen(false)}>
-                        ביטול
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
-              {levelsLoading ? (
-                <div className="text-center py-8 text-muted-foreground">טוען...</div>
-              ) : levels && levels.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-right">שם הרמה</TableHead>
-                      <TableHead className="text-right">תיאור</TableHead>
-                      <TableHead className="text-right">סדר</TableHead>
-                      <TableHead className="text-right">פעולות</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {levels.map((level) => (
-                      <TableRow key={level.id}>
-                        <TableCell className="font-medium">{level.name}</TableCell>
-                        <TableCell>{level.description || "-"}</TableCell>
-                        <TableCell>{level.sort_order}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => deleteLevelMutation.mutate(level.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-12">
-                  <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <p className="text-muted-foreground">אין רמות לימוד במערכת עדיין</p>
-                  <p className="text-sm text-muted-foreground">לחץ על "הוסף רמה" כדי להתחיל</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ClassLevelsManager />
+        </TabsContent>
+
+        {/* Class Types Tab */}
+        <TabsContent value="types" className="mt-6">
+          <ClassTypesManager />
         </TabsContent>
 
         {/* Seasons Tab */}
