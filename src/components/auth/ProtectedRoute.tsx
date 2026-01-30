@@ -11,14 +11,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  // Check if user has a school_id in their profile
+  // Check if user has a school_id in their profile and subscription status
   const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: ["user-profile-school-check", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("school_id, role")
+        .select("school_id, role, subscription_paid")
         .eq("id", user.id)
         .single();
       
@@ -29,7 +29,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return data;
     },
     enabled: !!user?.id,
-    staleTime: 1000 * 30, // Cache for 30 seconds
+    staleTime: 1000 * 10, // Cache for 10 seconds (shorter to detect payment faster)
   });
 
   if (loading || (user && profileLoading)) {
@@ -55,14 +55,21 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
-  // If user has no school_id and is not on allowed pages, redirect to welcome
-  const allowedPaths = ["/auth/setup-school", "/welcome"];
+  // If user has no school_id and is not on allowed pages, redirect appropriately
+  const allowedPaths = ["/auth/setup-school", "/welcome", "/auth/subscription"];
   const isOnAllowedPage = allowedPaths.includes(location.pathname);
   const hasSchool = profileData?.school_id !== null && profileData?.school_id !== undefined;
+  const hasPaidSubscription = profileData?.subscription_paid === true;
 
   if (!hasSchool && !isOnAllowedPage && !isDemoMode && profileData !== undefined) {
-    // User logged in but has no school - redirect to welcome page
-    return <Navigate to="/welcome" replace state={{ from: location }} />;
+    // User logged in but has no school
+    if (hasPaidSubscription) {
+      // User paid but hasn't created school yet - send to setup
+      return <Navigate to="/auth/setup-school" replace state={{ from: location }} />;
+    } else {
+      // User hasn't paid - redirect to welcome/subscription flow
+      return <Navigate to="/welcome" replace state={{ from: location }} />;
+    }
   }
 
   return <>{children}</>;

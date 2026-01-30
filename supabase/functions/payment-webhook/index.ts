@@ -27,26 +27,18 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Generate a temporary password
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}
+// Note: We no longer generate temporary passwords
+// Users set their own password during registration
 
-// Send welcome notification via webhook
-interface WelcomeNotificationData {
+// Send payment confirmation notification via webhook (for existing users who set their own password)
+interface PaymentConfirmationData {
   fullName: string;
   phone: string;
   email: string;
-  tempPassword: string;
   loginUrl: string;
 }
 
-async function sendWelcomeNotification(data: WelcomeNotificationData): Promise<void> {
+async function sendPaymentConfirmationNotification(data: PaymentConfirmationData): Promise<void> {
   const webhookUrl = Deno.env.get('PLATFORM_WELCOME_WEBHOOK_URL');
   
   if (!webhookUrl) {
@@ -55,7 +47,7 @@ async function sendWelcomeNotification(data: WelcomeNotificationData): Promise<v
   }
 
   const payload = {
-    event_type: 'new_subscription',
+    event_type: 'payment_confirmed',
     timestamp: new Date().toISOString(),
     user: {
       full_name: data.fullName,
@@ -65,13 +57,13 @@ async function sendWelcomeNotification(data: WelcomeNotificationData): Promise<v
     credentials: {
       login_url: data.loginUrl,
       username: data.email,
-      temporary_password: data.tempPassword,
+      // Note: No password sent - user already set their own during registration
     },
-    message: `שלום ${data.fullName}! 🎉\n\nתודה שהצטרפת ל-AquaManager!\n\nפרטי ההתחברות שלך:\n📧 שם משתמש: ${data.email}\n🔑 סיסמה זמנית: ${data.tempPassword}\n\n🔗 קישור להתחברות:\n${data.loginUrl}\n\nמומלץ להחליף את הסיסמה לאחר ההתחברות הראשונה.\n\nבהצלחה!`
+    message: `שלום ${data.fullName}! 🎉\n\nהתשלום שלך התקבל בהצלחה!\n\nכעת תוכל/י להתחבר ולהקים את בית הספר שלך.\n\n📧 שם משתמש: ${data.email}\n🔗 קישור להתחברות:\n${data.loginUrl}\n\nבהצלחה!`
   };
 
   try {
-    console.log('[payment-webhook] Sending welcome notification to webhook');
+    console.log('[payment-webhook] Sending payment confirmation notification to webhook');
     
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -85,7 +77,7 @@ async function sendWelcomeNotification(data: WelcomeNotificationData): Promise<v
       const errorText = await response.text();
       console.error('[payment-webhook] Webhook failed:', response.status, errorText);
     } else {
-      console.log('[payment-webhook] Welcome notification sent successfully');
+      console.log('[payment-webhook] Payment confirmation notification sent successfully');
     }
   } catch (error) {
     console.error('[payment-webhook] Error sending webhook:', error);
@@ -243,7 +235,7 @@ Deno.serve(async (req) => {
         userHasSchool = true;
       }
 
-      // ===== NEW: Mark user as subscription_paid for school creation =====
+      // ===== Mark user as subscription_paid for school creation =====
       // This enables users to create a new school after completing payment
       if (!profile?.subscription_paid) {
         console.log('[payment-webhook] Marking user as subscription_paid:', userId);
@@ -261,35 +253,21 @@ Deno.serve(async (req) => {
         } else {
           console.log('[payment-webhook] User marked as subscription_paid successfully');
           
-          // Generate temp password and send welcome notification for new subscribers
-          const tempPassword = generateTempPassword();
+          // Get full name from profile or webhook payload
+          const fullName = profile?.first_name || profile?.last_name
+            ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+            : customerName || 'לקוח יקר';
           
-          // Update user password
-          const { error: passwordError } = await supabase.auth.admin.updateUserById(userId, {
-            password: tempPassword
+          const userPhone = profile?.phone || customerPhone || '';
+          
+          // Send welcome notification via webhook (WITHOUT generating new password!)
+          // Users already registered and set their own password - we just notify them
+          await sendPaymentConfirmationNotification({
+            fullName,
+            phone: userPhone,
+            email: email,
+            loginUrl: 'https://aqua-ivrit-flow.lovable.app/auth'
           });
-          
-          if (passwordError) {
-            console.error('[payment-webhook] Error setting temp password:', passwordError);
-          } else {
-            console.log('[payment-webhook] Temporary password set for user');
-            
-            // Get full name from profile or webhook payload
-            const fullName = profile?.first_name || profile?.last_name
-              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-              : customerName || 'לקוח יקר';
-            
-            const userPhone = profile?.phone || customerPhone || '';
-            
-            // Send welcome notification via webhook
-            await sendWelcomeNotification({
-              fullName,
-              phone: userPhone,
-              email: email,
-              tempPassword,
-              loginUrl: 'https://aqua-ivrit-flow.lovable.app/auth'
-            });
-          }
         }
       }
     }
