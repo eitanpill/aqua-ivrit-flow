@@ -59,7 +59,7 @@ async function sendPaymentConfirmationNotification(data: PaymentConfirmationData
       username: data.email,
       // Note: No password sent - user already set their own during registration
     },
-    message: `שלום ${data.fullName}! 🎉\n\nהתשלום שלך התקבל בהצלחה!\n\nכעת תוכל/י להתחבר ולהקים את בית הספר שלך.\n\n📧 שם משתמש: ${data.email}\n🔗 קישור להתחברות:\n${data.loginUrl}\n\nבהצלחה!`
+    message: `שלום ${data.fullName}! 🎉\n\nהתשלום שלך התקבל בהצלחה!\n\nכעת תוכל/י להתחבר ולהקים את בית הספר שלך.\n\n📧 שם משתמש: ${data.email}\n🔑 הסיסמה שלך היא הסיסמה שיצרת בעת ההרשמה\n\n🔗 קישור להתחברות:\n${data.loginUrl}\n\n💡 שכחת את הסיסמה? לחץ על "שכחתי סיסמה" בעמוד ההתחברות\n\nבהצלחה!`
   };
 
   try {
