@@ -121,22 +121,9 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate, isSigningUp]);
 
-  const handleDemoLogin = async () => {
-    setIsDemoLoading(true);
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email: DEMO_CREDENTIALS.email,
-      password: DEMO_CREDENTIALS.password,
-    });
-
-    if (error) {
-      toast({
-        title: "שגיאה בכניסה למצב הדגמה",
-        description: "לא ניתן להתחבר למערכת ההדגמה כעת. נסה שוב מאוחר יותר.",
-        variant: "destructive",
-      });
-    }
-    setIsDemoLoading(false);
+  const handleDemoMode = () => {
+    // Navigate directly to demo mode - no login required
+    navigate("/dashboard?demo=true");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -364,7 +351,7 @@ export default function Auth() {
             {/* Secondary - Demo Mode */}
             <Card 
               className="cursor-pointer transition-all hover:shadow-lg hover:border-amber-500/50 border-2 border-dashed"
-              onClick={handleDemoLogin}
+              onClick={handleDemoMode}
             >
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
@@ -373,13 +360,9 @@ export default function Auth() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">סיור במערכת הדגמה</h3>
-                    <p className="text-sm text-muted-foreground">היכנס לגרסת דמו עם נתונים לדוגמה</p>
+                    <p className="text-sm text-muted-foreground">צפה בגרסת דמו עם נתונים לדוגמה - ללא הרשמה</p>
                   </div>
-                  {isDemoLoading ? (
-                    <div className="h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  <ArrowLeft className="h-5 w-5 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>

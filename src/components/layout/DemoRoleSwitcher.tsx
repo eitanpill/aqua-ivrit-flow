@@ -54,9 +54,11 @@ export function useDemoRole() {
     localStorage.setItem(DEMO_ROLE_KEY, currentRole);
   }, [currentRole]);
 
+  // In demo mode, use the selected role. Otherwise, return null for demoRole
   return {
     demoRole: isDemoMode ? currentRole : null,
     setDemoRole: setCurrentRole,
+    // Helper flags for role-based UI (in demo mode, respect the selected role)
     isAdmin: !isDemoMode || currentRole === 'admin',
     isCoach: !isDemoMode || currentRole === 'admin' || currentRole === 'coach',
     isCustomer: !isDemoMode || currentRole === 'customer',

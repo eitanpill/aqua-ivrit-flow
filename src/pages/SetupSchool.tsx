@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Waves, Loader2 } from "lucide-react";
+import { Building2, Waves, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function SetupSchool() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
@@ -22,6 +23,20 @@ export default function SetupSchool() {
     firstName: "",
     lastName: "",
   });
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+
+  // Check if user came from successful payment
+  useEffect(() => {
+    if (searchParams.get("payment") === "success") {
+      setShowPaymentSuccess(true);
+      toast({
+        title: "התשלום התקבל בהצלחה! 🎉",
+        description: "עכשיו בואו נקים את בית הספר שלך",
+      });
+      // Remove the query param after showing message
+      setTimeout(() => setShowPaymentSuccess(false), 3000);
+    }
+  }, [searchParams, toast]);
 
   // Check if user already has a school
   useEffect(() => {
@@ -141,6 +156,12 @@ export default function SetupSchool() {
             <CardTitle className="text-2xl font-bold">הקמת בית ספר חדש</CardTitle>
             <CardDescription>מלא את הפרטים כדי להשלים את ההרשמה</CardDescription>
           </div>
+          {showPaymentSuccess && (
+            <div className="flex items-center gap-2 p-3 bg-green-100 border border-green-300 rounded-lg text-green-700 text-sm">
+              <CheckCircle2 className="h-5 w-5 shrink-0" />
+              <span>התשלום אושר! אפשר להמשיך להקמת בית הספר</span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

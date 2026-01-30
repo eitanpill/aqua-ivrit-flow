@@ -43,14 +43,21 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user) {
+  // Allow demo mode without authentication
+  const isDemoMode = location.search.includes("demo=true");
+  
+  if (!user && !isDemoMode) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // In demo mode without user, allow access
+  if (!user && isDemoMode) {
+    return <>{children}</>;
   }
 
   // If user has no school_id and is not on allowed pages, redirect to welcome
   const allowedPaths = ["/auth/setup-school", "/welcome"];
   const isOnAllowedPage = allowedPaths.includes(location.pathname);
-  const isDemoMode = location.search.includes("demo=true");
   const hasSchool = profileData?.school_id !== null && profileData?.school_id !== undefined;
 
   if (!hasSchool && !isOnAllowedPage && !isDemoMode && profileData !== undefined) {
