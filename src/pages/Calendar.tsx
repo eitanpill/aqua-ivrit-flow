@@ -236,63 +236,65 @@ export default function Calendar() {
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <CalendarIcon className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <CalendarIcon className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
             יומן שיעורים
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             ניהול וצפייה בלוח הזמנים השבועי
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleToday}>
             היום
           </Button>
-          <Button variant="outline" size="icon" onClick={handleNextWeek}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[200px] text-center">
-            {format(weekStart, 'dd')} - {format(weekEnd, 'dd')} {HEBREW_MONTHS[weekStart.getMonth()]} {weekStart.getFullYear()}
-          </span>
-          <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handleNextWeek}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <span className="text-xs sm:text-sm font-medium min-w-[140px] sm:min-w-[200px] text-center">
+              {format(weekStart, 'dd')} - {format(weekEnd, 'dd')} {HEBREW_MONTHS[weekStart.getMonth()]}
+            </span>
+            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handlePreviousWeek}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              שיעורים מתוכננים
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+              מתוכננים
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{scheduledCount}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{scheduledCount}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              שיעורים שהושלמו
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+              הושלמו
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedCount}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{completedCount}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              שיעורים שבוטלו
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+              בוטלו
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{cancelledCount}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-red-600">{cancelledCount}</div>
           </CardContent>
         </Card>
       </div>

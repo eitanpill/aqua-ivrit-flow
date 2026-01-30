@@ -3,7 +3,9 @@ import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { HEBREW_DAYS, getStatusColor, SESSION_STATUS_HEBREW } from '@/lib/session-generator';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Session {
   id: string;
@@ -32,6 +34,7 @@ export function WeeklyCalendar({
   sessions,
   onSessionClick,
 }: WeeklyCalendarProps) {
+  const isMobile = useIsMobile();
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -57,6 +60,86 @@ export function WeeklyCalendar({
     return { top, height: Math.max(height, 30) };
   };
 
+  // Mobile: Show sessions as a list view
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {weekDays.map((day, dayIndex) => {
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const daySessions = sessionsByDay[dayKey] || [];
+          const isToday = isSameDay(day, new Date());
+          
+          if (daySessions.length === 0) return null;
+
+          return (
+            <Card key={dayIndex} className={cn(isToday && 'ring-2 ring-primary')}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{HEBREW_DAYS[dayIndex]}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {format(day, 'dd/MM')}
+                  </span>
+                  {isToday && (
+                    <Badge variant="default" className="text-xs">היום</Badge>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {daySessions.map((session) => {
+                    const coachName = session.coach
+                      ? `${session.coach.first_name || ''} ${session.coach.last_name || ''}`.trim()
+                      : '';
+                    
+                    return (
+                      <div
+                        key={session.id}
+                        onClick={() => onSessionClick(session)}
+                        className={cn(
+                          'p-3 rounded-lg cursor-pointer transition-colors',
+                          session.status === 'cancelled'
+                            ? 'bg-muted text-muted-foreground'
+                            : 'bg-primary/10 hover:bg-primary/20 border-r-4 border-primary'
+                        )}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">
+                              {session.class_type?.name || 'שיעור'}
+                            </div>
+                            {coachName && (
+                              <div className="text-sm text-muted-foreground">
+                                {coachName}
+                              </div>
+                            )}
+                            {session.resource && (
+                              <div className="text-sm text-muted-foreground">
+                                {session.resource.name}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm font-medium">
+                            {format(new Date(session.start_time), 'HH:mm')} - {format(new Date(session.end_time), 'HH:mm')}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {sessions.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              אין שיעורים בשבוע זה
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: Original grid view
   return (
     <div className="bg-card rounded-lg border overflow-hidden">
       {/* Header with day names */}

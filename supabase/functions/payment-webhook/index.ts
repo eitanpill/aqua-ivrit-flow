@@ -262,11 +262,12 @@ Deno.serve(async (req) => {
           
           // Send welcome notification via webhook (WITHOUT generating new password!)
           // Users already registered and set their own password - we just notify them
+          // Link directly to setup-school since they've paid and can now create their school
           await sendPaymentConfirmationNotification({
             fullName,
             phone: userPhone,
             email: email,
-            loginUrl: 'https://aqua-ivrit-flow.lovable.app/auth'
+            loginUrl: 'https://aqua-ivrit-flow.lovable.app/dashboard'
           });
         }
       }

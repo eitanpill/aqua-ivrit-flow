@@ -179,23 +179,27 @@ const Billing = () => {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="transactions" className="gap-2">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+          <TabsTrigger value="transactions" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2">
             <CreditCard className="h-4 w-4" />
-            תנועות
+            <span className="hidden sm:inline">תנועות</span>
+            <span className="sm:hidden">תנועות</span>
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="gap-2">
+          <TabsTrigger value="invoices" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2">
             <Receipt className="h-4 w-4" />
-            חשבוניות
+            <span className="hidden sm:inline">חשבוניות</span>
+            <span className="sm:hidden">חשבוניות</span>
           </TabsTrigger>
-          <TabsTrigger value="subscriptions" className="gap-2">
+          <TabsTrigger value="subscriptions" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2">
             <Sparkles className="h-4 w-4" />
-            מנויים
+            <span className="hidden sm:inline">מנויים</span>
+            <span className="sm:hidden">מנויים</span>
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger value="debts" className="gap-2">
+            <TabsTrigger value="debts" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2">
               <AlertTriangle className="h-4 w-4" />
-              חובות
+              <span className="hidden sm:inline">חובות</span>
+              <span className="sm:hidden">חובות</span>
             </TabsTrigger>
           )}
         </TabsList>
