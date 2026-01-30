@@ -5,28 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple in-memory rate limiting (resets on function restart)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX = 100; // max requests per window
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-  
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-  
-  record.count++;
-  return true;
-}
-
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -43,39 +21,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get client IP for rate limiting and logging
-    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                     req.headers.get('x-real-ip') || 
-                     'unknown';
-    
-    // Rate limiting check
-    if (!checkRateLimit(clientIP)) {
-      console.warn('[payment-webhook] Rate limit exceeded for IP:', clientIP);
-      return new Response(
-        JSON.stringify({ received: false, error: 'Rate limit exceeded' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Webhook token validation - check URL query parameter
-    const url = new URL(req.url);
-    const webhookToken = url.searchParams.get('token');
-    const expectedToken = Deno.env.get('PAYMENT_WEBHOOK_TOKEN');
-    
-    // If a webhook token is configured, validate it
-    if (expectedToken && expectedToken.length > 0) {
-      if (!webhookToken || webhookToken !== expectedToken) {
-        console.warn('[payment-webhook] Invalid or missing webhook token from IP:', clientIP);
-        return new Response(
-          JSON.stringify({ received: false, error: 'Unauthorized' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } else {
-      // No token configured - log warning but allow (for backwards compatibility during setup)
-      console.warn('[payment-webhook] WARNING: No PAYMENT_WEBHOOK_TOKEN configured. Webhook is unprotected!');
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -84,8 +29,7 @@ Deno.serve(async (req) => {
     // Parse the incoming payload from Morning
     const payload = await req.json();
     
-    // Log webhook attempt with IP for audit trail
-    console.log('[payment-webhook] Received webhook from IP:', clientIP);
+    // Log webhook receipt
     console.log('[payment-webhook] Received payload:', JSON.stringify(payload));
 
     // Extract relevant fields from Morning webhook
