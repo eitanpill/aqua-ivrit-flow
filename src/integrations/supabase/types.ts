@@ -904,6 +904,8 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["app_role"]
           school_id: string | null
+          subscription_paid: boolean | null
+          subscription_paid_at: string | null
           updated_at: string
         }
         Insert: {
@@ -918,6 +920,8 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           school_id?: string | null
+          subscription_paid?: boolean | null
+          subscription_paid_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -932,6 +936,8 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           school_id?: string | null
+          subscription_paid?: boolean | null
+          subscription_paid_at?: string | null
           updated_at?: string
         }
         Relationships: [

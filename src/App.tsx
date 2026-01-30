@@ -14,6 +14,7 @@ import { DemoModeProvider } from "@/hooks/useDemoMode";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import Auth from "@/pages/Auth";
 import SetupSchool from "@/pages/SetupSchool";
+import SubscriptionRequired from "@/pages/SubscriptionRequired";
 import Welcome from "@/pages/Welcome";
 import Dashboard from "@/pages/Dashboard";
 import Locations from "@/pages/Locations";
@@ -66,6 +67,7 @@ const App = () => (
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/auth/setup-school" element={<SetupSchool />} />
+                  <Route path="/auth/subscription" element={<SubscriptionRequired />} />
                   <Route path="/welcome" element={<Welcome />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route
