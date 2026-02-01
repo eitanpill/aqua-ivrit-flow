@@ -111,7 +111,7 @@ export default function EnrollmentWizard() {
     enabled: !!activeSchoolId,
   });
 
-  // Fetch upcoming sessions with enrollment counts - filtered by school_id
+  // Fetch upcoming sessions with enrollment counts - OPTIMIZED using RPC (no N+1)
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ["sessions-with-counts", activeSchoolId, dateFilter],
     queryFn: async () => {
@@ -120,38 +120,32 @@ export default function EnrollmentWizard() {
       const endOfDay = new Date(dateFilter);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const { data, error } = await supabase
-        .from("sessions")
-        .select(`
-          *,
-          class_types (name, max_participants),
-          resources (name)
-        `)
-        .eq("school_id", activeSchoolId)
-        .gte("start_time", startOfDay.toISOString())
-        .lte("start_time", endOfDay.toISOString())
-        .eq("status", "scheduled")
-        .eq("is_deleted", false)
-        .order("start_time");
+      // Use RPC function to get sessions with counts in a single query
+      const { data, error } = await (supabase as any).rpc("get_sessions_with_counts", {
+        p_school_id: activeSchoolId,
+        p_start_date: startOfDay.toISOString(),
+        p_end_date: endOfDay.toISOString(),
+      });
+
       if (error) throw error;
 
-      // Get enrollment counts for each session
-      const sessionsWithCounts = await Promise.all(
-        (data || []).map(async (session) => {
-          const { count } = await supabase
-            .from("enrollments")
-            .select("*", { count: "exact", head: true })
-            .eq("session_id", session.id)
-            .neq("status", "cancelled");
-          
-          return {
-            ...session,
-            enrollment_count: count || 0,
-          };
-        })
-      );
-
-      return sessionsWithCounts as Session[];
+      // Transform data to match expected shape
+      return (data || []).map((session: any) => ({
+        id: session.id,
+        start_time: session.start_time,
+        end_time: session.end_time,
+        max_participants: session.max_participants,
+        class_types: { 
+          name: session.class_type_name,
+          max_participants: session.class_type_max_participants
+        },
+        resources: session.resource_name ? { name: session.resource_name } : undefined,
+        coach_profile: session.coach_first_name ? {
+          first_name: session.coach_first_name,
+          last_name: session.coach_last_name
+        } : undefined,
+        enrollment_count: Number(session.enrollment_count) || 0,
+      })) as Session[];
     },
     enabled: !!activeSchoolId,
   });
