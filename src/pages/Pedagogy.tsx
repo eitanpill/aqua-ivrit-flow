@@ -95,15 +95,6 @@ export default function Pedagogy() {
     enabled: !!activeSchoolId,
   });
 
-  // Show loading state
-  if (isLoadingSchool) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   // Create season mutation
   const createSeasonMutation = useMutation({
     mutationFn: async (newSeason: { name: string; start_date: string; end_date: string; active: boolean }) => {
@@ -161,6 +152,15 @@ export default function Pedagogy() {
       toast({ title: "הרמה נמחקה בהצלחה" });
     },
   });
+
+  // Show loading state - MUST be after all hooks
+  if (isLoadingSchool) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const handleSeasonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
