@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { user_id, school_id, amount, product_id } = body;
 
-    console.log("📥 Edge Function Received:", { amount, type: typeof amount, user_id, school_id, product_id });
+    console.log("📥 Edge Function Received:", { amount, hasUserId: !!user_id, hasSchoolId: !!school_id, hasProductId: !!product_id });
 
     // STEP 0: Rigorous Amount Validation
     // 1. FORCE PARSE FLOAT - handle string, number, or any other type
@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
       console.warn('⚠️ No pluginId configured - this may cause error 2600 if not using Cardcom');
     }
 
-    console.log("📤 Sending to Morning:", JSON.stringify(paymentRequestBody));
+    console.log("📤 Sending to Morning:", { amount: paymentRequestBody.amount, hasPluginId: !!paymentRequestBody.pluginId });
 
     const paymentResponse = await fetch(`${GREENINVOICE_API_URL}/payments/form`, {
       method: 'POST',
@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
     });
 
     const paymentData = await paymentResponse.json();
-    console.log('Payment response status:', paymentResponse.status, 'data:', JSON.stringify(paymentData));
+    console.log('Payment response status:', paymentResponse.status, 'hasUrl:', !!paymentData.url);
 
     if (!paymentResponse.ok) {
       console.error('Green Invoice payment form error:', paymentData);

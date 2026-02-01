@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Edit, Trash2, Calendar, CreditCard, ChevronLeft, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchool } from '@/contexts/SchoolContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -58,6 +59,7 @@ const GENDER_OPTIONS = {
 
 export default function MyFamily() {
   const { user } = useAuth();
+  const { activeSchoolId } = useSchool();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -107,11 +109,15 @@ export default function MyFamily() {
   // Add swimmer mutation
   const addSwimmer = useMutation({
     mutationFn: async (data: typeof formData) => {
+      if (!activeSchoolId) {
+        throw new Error('לא נמצא בית ספר משויך');
+      }
       const { error } = await supabase
         .from('swimmers')
         .insert({
           ...data,
           parent_id: user?.id,
+          school_id: activeSchoolId, // CRITICAL: Include school_id for multi-tenancy
           birth_date: data.birth_date || null,
           gender: data.gender || null,
         } as any);

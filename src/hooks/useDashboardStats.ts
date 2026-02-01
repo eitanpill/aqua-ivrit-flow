@@ -12,8 +12,8 @@ export interface DashboardStats {
 }
 
 export function useDashboardStats({ isAdmin }: { isAdmin: boolean }) {
-  const { currentSchool } = useSchool();
-  const schoolId = currentSchool?.id ?? null;
+  const { activeSchoolId } = useSchool();
+  const schoolId = activeSchoolId;
 
   return useQuery({
     queryKey: ["dashboard-stats", isAdmin, schoolId],
