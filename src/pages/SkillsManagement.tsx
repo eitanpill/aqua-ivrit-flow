@@ -111,14 +111,6 @@ export default function SkillsManagement() {
     enabled: !!activeSchoolId,
   });
 
-  if (isLoadingSchool || skillsLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // Create skill mutation
   const createSkillMutation = useMutation({
     mutationFn: async () => {
@@ -197,6 +189,15 @@ export default function SkillsManagement() {
     },
   });
 
+  // Loading state - placed after all hooks
+  if (isLoadingSchool || skillsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const resetForm = () => {
     setSkillName('');
     setSkillDescription('');
@@ -251,13 +252,6 @@ export default function SkillsManagement() {
     return acc;
   }, {} as Record<string, Skill[]>);
 
-  if (skillsLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto py-6 space-y-6" dir="rtl">
