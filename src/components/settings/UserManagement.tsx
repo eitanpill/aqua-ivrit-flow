@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Users, UserPlus, Shield, Loader2 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface UserWithRole {
   user_id: string;
@@ -35,38 +36,34 @@ export function UserManagement() {
   const [email, setEmail] = useState("");
   const [selectedRole, setSelectedRole] = useState<AppRole>("coach");
   const queryClient = useQueryClient();
+  const { activeSchoolId } = useSchool();
 
-  // Fetch all users with their roles (admin only)
+  // Fetch users with their roles - FILTERED BY CURRENT SCHOOL
   const { data: users, isLoading } = useQuery({
-    queryKey: ["users-with-roles"],
+    queryKey: ["users-with-roles", activeSchoolId],
     queryFn: async () => {
-      // Get all user roles using raw query
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles' as any)
-        .select("user_id, role");
+      if (!activeSchoolId) return [];
 
-      if (rolesError) throw rolesError;
-
-      // Get profiles for these users
+      // Get profiles for this school only (staff members)
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name");
+        .select("id, first_name, last_name, role, school_id")
+        .eq("school_id", activeSchoolId)
+        .eq("is_deleted", false);
 
       if (profilesError) throw profilesError;
 
-      // Combine data
-      const usersWithRoles: UserWithRole[] = (roles as any[]).map((r) => {
-        const profile = profiles.find((p) => p.id === r.user_id);
-        return {
-          user_id: r.user_id,
-          role: r.role as AppRole,
-          first_name: profile?.first_name || null,
-          last_name: profile?.last_name || null,
-        };
-      });
+      // Convert to UserWithRole format
+      const usersWithRoles: UserWithRole[] = (profiles || []).map((p) => ({
+        user_id: p.id,
+        role: p.role as AppRole,
+        first_name: p.first_name,
+        last_name: p.last_name,
+      }));
 
       return usersWithRoles;
     },
+    enabled: !!activeSchoolId,
   });
 
   // Mutation to set user role using RPC
