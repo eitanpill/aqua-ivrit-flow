@@ -1,13 +1,50 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Restrict CORS to known origins
+const ALLOWED_ORIGIN = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rate limiting
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 30; // 30 requests per minute per IP
+const RATE_LIMIT_WINDOW = 60 * 1000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
+// Input validation helpers
+function isValidUUID(id: unknown): boolean {
+  if (!id || typeof id !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
+
+function isValidAmount(amount: unknown): number | null {
+  const parsed = typeof amount === 'number' ? amount : parseFloat(String(amount));
+  // Amount must be positive and within reasonable bounds (1 to 100,000 NIS)
+  if (isNaN(parsed) || parsed <= 0 || parsed > 100000) return null;
+  return parsed;
+}
+
 // Green Invoice (Morning) API base URLs
 const GREENINVOICE_API_URL = 'https://api.greeninvoice.co.il/api/v1';
-// For sandbox testing: 'https://sandbox.d.greeninvoice.co.il/api/v1'
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -15,7 +52,28 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Only accept POST
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Method not allowed' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
+    // Rate limiting
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    if (!checkRateLimit(clientIP)) {
+      console.warn('[process-purchase] Rate limit exceeded for IP:', clientIP);
+      return new Response(
+        JSON.stringify({ success: false, error: 'יותר מדי בקשות. נסה שוב בעוד דקה.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Initialize Supabase client with SERVICE_ROLE_KEY to bypass RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -23,51 +81,90 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { user_id, school_id, amount, product_id } = body;
 
-    console.log("📥 Edge Function Received:", { amount, hasUserId: !!user_id, hasSchoolId: !!school_id, hasProductId: !!product_id });
-
-    // STEP 0: Rigorous Amount Validation
-    // 1. FORCE PARSE FLOAT - handle string, number, or any other type
-    const finalAmount = parseFloat(String(amount));
+    // ===== INPUT VALIDATION =====
     
-    // 2. VALIDATION - must be a positive number
-    if (isNaN(finalAmount) || finalAmount <= 0) {
-      console.error("❌ Invalid Amount Detected:", { original: amount, parsed: finalAmount });
+    // Validate user_id (required, must be UUID)
+    if (!isValidUUID(user_id)) {
+      console.error('[process-purchase] Invalid user_id');
       return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: `סכום לתשלום לא תקין: ${amount}`,
-          details: { original: amount, parsed: finalAmount, type: typeof amount }
-        }),
+        JSON.stringify({ success: false, error: 'מזהה משתמש לא תקין' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log("✅ Amount validated:", finalAmount);
-
-    // Validation: Check for required fields
-    const missingFields: string[] = [];
-    if (!user_id) missingFields.push('user_id');
-    if (!school_id) missingFields.push('school_id');
-    if (amount === undefined || amount === null) missingFields.push('amount');
-
-    if (missingFields.length > 0) {
-      console.error('Missing required fields:', missingFields);
+    // Validate school_id (required, must be UUID)
+    if (!isValidUUID(school_id)) {
+      console.error('[process-purchase] Invalid school_id');
       return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'שדות חובה חסרים', 
-          missing: missingFields 
-        }),
+        JSON.stringify({ success: false, error: 'מזהה בית ספר לא תקין' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // STEP 1: Fetch Payment Credentials from payment_configs table (including plugin_id)
-    console.log('Fetching payment credentials for school:', school_id);
-    
+    // Validate amount (required, must be positive number within bounds)
+    const validatedAmount = isValidAmount(amount);
+    if (validatedAmount === null) {
+      console.error('[process-purchase] Invalid amount');
+      return new Response(
+        JSON.stringify({ success: false, error: 'סכום לתשלום לא תקין' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate product_id if provided (optional, must be UUID)
+    if (product_id !== undefined && product_id !== null && !isValidUUID(product_id)) {
+      console.error('[process-purchase] Invalid product_id');
+      return new Response(
+        JSON.stringify({ success: false, error: 'מזהה מוצר לא תקין' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log("[process-purchase] Validated request");
+
+    // Verify user exists and belongs to school
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, school_id')
+      .eq('id', user_id)
+      .single();
+
+    if (profileError || !userProfile) {
+      console.error('[process-purchase] User not found');
+      return new Response(
+        JSON.stringify({ success: false, error: 'משתמש לא נמצא' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify school exists
+    const { data: schoolData, error: schoolError } = await supabase
+      .from('schools')
+      .select('id')
+      .eq('id', school_id)
+      .single();
+
+    if (schoolError || !schoolData) {
+      console.error('[process-purchase] School not found');
+      return new Response(
+        JSON.stringify({ success: false, error: 'בית ספר לא נמצא' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch Payment Credentials from payment_configs table
     const { data: paymentConfig, error: configError } = await supabase
       .from('payment_configs')
       .select('api_key, api_secret, plugin_id')
@@ -76,7 +173,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (configError || !paymentConfig) {
-      console.error('Payment config error:', configError);
+      console.error('[process-purchase] Payment config error');
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -89,7 +186,7 @@ Deno.serve(async (req) => {
     const { api_key, api_secret, plugin_id } = paymentConfig;
 
     if (!api_key || !api_secret) {
-      console.error('Missing API credentials');
+      console.error('[process-purchase] Missing API credentials');
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -99,16 +196,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Payment credentials found, plugin_id:', plugin_id || 'NOT SET');
-
-    // STEP 2A: Get Token from Green Invoice API
-    console.log('Requesting token from Green Invoice API...');
+    // Get Token from Green Invoice API
+    console.log('[process-purchase] Requesting token...');
     
     const tokenResponse = await fetch(`${GREENINVOICE_API_URL}/account/token`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: api_key,
         secret: api_secret,
@@ -116,61 +209,46 @@ Deno.serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
-    console.log('Token response status:', tokenResponse.status);
 
     if (!tokenResponse.ok || !tokenData.token) {
-      console.error('Green Invoice token error:', tokenData);
+      console.error('[process-purchase] Token error');
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: tokenData.errorMessage || 'שגיאה בהתחברות לשירות הסליקה',
-          errorCode: tokenData.errorCode,
-          details: tokenData
+          error: 'שגיאה בהתחברות לשירות הסליקה'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const greenInvoiceToken = tokenData.token;
-    console.log('Green Invoice token obtained successfully');
 
-    // STEP 2B: Generate Payment Link using Payment Form endpoint
-    console.log('Generating payment link...');
-
-    // Determine app URL for redirects
+    // Generate Payment Link
     const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://aqua-ivrit-flow.lovable.app';
     const functionsUrl = `${supabaseUrl}/functions/v1`;
 
-    // Morning (GreenInvoice) "Get Payment Form" endpoint expects:
-    // - amount in Shekels (NOT Agorot)
-    // - pluginId is REQUIRED unless using Cardcom (per API docs)
-    // Ref: https://www.greeninvoice.co.il/api-docs/#/reference/payments/get-payment-form
     const paymentRequestBody: Record<string, unknown> = {
       description: 'רכישה במערכת AquaFlow',
-      type: 320, // Payment form type
+      type: 320,
       lang: 'he',
       currency: 'ILS',
       vatType: 0,
-      amount: finalAmount, // Send raw number in Shekels (e.g., 150.5)
+      amount: validatedAmount,
       maxPayments: 1,
       successUrl: `${siteUrl}/dashboard?payment=success`,
       failureUrl: `${siteUrl}/billing?payment=failed`,
       notifyUrl: `${functionsUrl}/payment-webhook`,
       client: {
-        name: `משתמש ${user_id.substring(0, 8)}`,
+        name: `משתמש ${(user_id as string).substring(0, 8)}`,
         add: false,
       },
     };
 
-    // Add pluginId if configured (REQUIRED for most providers except Cardcom)
     if (plugin_id) {
       paymentRequestBody.pluginId = plugin_id;
-      console.log('Using configured pluginId:', plugin_id);
-    } else {
-      console.warn('⚠️ No pluginId configured - this may cause error 2600 if not using Cardcom');
     }
 
-    console.log("📤 Sending to Morning:", { amount: paymentRequestBody.amount, hasPluginId: !!paymentRequestBody.pluginId });
+    console.log("[process-purchase] Generating payment link...");
 
     const paymentResponse = await fetch(`${GREENINVOICE_API_URL}/payments/form`, {
       method: 'POST',
@@ -182,40 +260,33 @@ Deno.serve(async (req) => {
     });
 
     const paymentData = await paymentResponse.json();
-    console.log('Payment response status:', paymentResponse.status, 'hasUrl:', !!paymentData.url);
 
     if (!paymentResponse.ok) {
-      console.error('Green Invoice payment form error:', paymentData);
+      console.error('[process-purchase] Payment form error');
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: paymentData.errorMessage || 'שגיאה ביצירת קישור תשלום',
-          errorCode: paymentData.errorCode,
-          details: paymentData
+          error: 'שגיאה ביצירת קישור תשלום'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extract payment URL from Green Invoice response
     const paymentUrl = paymentData.url;
 
     if (!paymentUrl) {
-      console.error('No payment URL in response:', paymentData);
+      console.error('[process-purchase] No payment URL in response');
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'לא התקבל קישור תשלום מהשרת',
-          details: paymentData
+          error: 'לא התקבל קישור תשלום מהשרת'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Payment link generated successfully:', paymentUrl);
+    console.log('[process-purchase] Payment link generated successfully');
 
-    // Return success with payment URL
-    // NOTE: We do NOT create transaction/invoice yet - we wait for webhook callback
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -225,12 +296,10 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    // Return RAW error message
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Unexpected error:', error);
+    console.error('[process-purchase] Unexpected error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage, details: error }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: 'שגיאה בלתי צפויה' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
