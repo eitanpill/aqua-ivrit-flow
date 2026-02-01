@@ -2119,6 +2119,27 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      get_sessions_with_counts: {
+        Args: { p_end_date: string; p_school_id: string; p_start_date: string }
+        Returns: {
+          class_type_id: string
+          class_type_max_participants: number
+          class_type_name: string
+          coach_first_name: string
+          coach_id: string
+          coach_last_name: string
+          end_time: string
+          enrollment_count: number
+          id: string
+          is_deleted: boolean
+          max_participants: number
+          resource_id: string
+          resource_name: string
+          school_id: string
+          start_time: string
+          status: string
+        }[]
+      }
       get_swimmer_report: { Args: { p_swimmer_id: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
