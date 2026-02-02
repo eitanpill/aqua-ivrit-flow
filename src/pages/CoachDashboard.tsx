@@ -20,12 +20,16 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HEBREW_DAYS } from '@/lib/session-generator';
 import { SessionMode } from '@/components/coach/SessionMode';
+import { DashboardStats, DashboardToolbar, DashboardGrid, SessionCard, type SessionCardData, type SessionStatus, type ViewMode } from '@/components/dashboard';
 
 const DEFAULT_HOURLY_RATE = 150;
 
 export default function CoachDashboard() {
   const { user } = useAuth();
   const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: todaySessions = [], isLoading } = useQuery({
     queryKey: ['coach-sessions', user?.id],
@@ -140,20 +144,67 @@ export default function CoachDashboard() {
     enabled: !!user?.id,
   });
 
-  const getSessionStatus = (session: any) => {
+  const getSessionStatus = (session: any): SessionStatus => {
     const now = new Date();
     const start = new Date(session.start_time);
     const end = new Date(session.end_time);
 
-    if (session.status === 'completed') return { label: 'הושלם', color: 'bg-success', glow: false };
-    if (now >= start && now <= end) return { label: 'בתהליך', color: 'bg-warning', glow: true };
-    if (now < start) return { label: 'ממתין', color: 'bg-primary', glow: false };
-    return { label: 'עבר', color: 'bg-muted', glow: false };
+    if (session.status === 'completed') return 'completed';
+    if (now >= start && now <= end) return 'inProgress';
+    if (now < start) return 'scheduled';
+    return 'completed';
   };
 
-  const formatSessionTime = (startTime: string, endTime: string) => {
-    return `${format(new Date(startTime), 'HH:mm')} - ${format(new Date(endTime), 'HH:mm')}`;
-  };
+  // Filter sessions
+  const filteredTodaySessions = todaySessions.filter((session: any) => {
+    if (statusFilter !== 'all') {
+      const sessionStatus = getSessionStatus(session);
+      if (sessionStatus !== statusFilter) return false;
+    }
+    if (searchQuery) {
+      const search = searchQuery.toLowerCase();
+      const name = session.class_type?.name?.toLowerCase() || '';
+      const resourceName = session.resource?.name?.toLowerCase() || '';
+      if (!name.includes(search) && !resourceName.includes(search)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Convert sessions to card format
+  const sessionCards: SessionCardData[] = filteredTodaySessions.map((session: any) => ({
+    id: session.id,
+    name: session.class_type?.name || 'שיעור שחייה',
+    subtitle: session.resource?.name,
+    date: format(new Date(session.start_time), 'dd/MM'),
+    startTime: session.start_time,
+    endTime: session.end_time,
+    status: getSessionStatus(session),
+    resource: session.resource?.name,
+    location: session.resource?.location?.name,
+    enrolledCount: session.enrollments?.filter((e: any) => e.status !== 'cancelled').length || 0,
+    maxParticipants: session.max_participants || 8,
+  }));
+
+  // Stats
+  const scheduledCount = filteredTodaySessions.filter((s: any) => getSessionStatus(s) === 'scheduled').length;
+  const inProgressCount = filteredTodaySessions.filter((s: any) => getSessionStatus(s) === 'inProgress').length;
+  const completedCount = filteredTodaySessions.filter((s: any) => getSessionStatus(s) === 'completed').length;
+
+  const stats = [
+    { id: 'inProgress', label: 'בתהליך', value: inProgressCount, color: 'text-amber-600' },
+    { id: 'scheduled', label: 'ממתינים', value: scheduledCount, color: 'text-blue-600' },
+    { id: 'completed', label: 'הושלמו', value: completedCount, color: 'text-green-600' },
+    { id: 'total', label: 'סה"כ', value: todaySessions.length },
+  ];
+
+  const statusOptions = [
+    { value: 'all', label: 'הכל' },
+    { value: 'inProgress', label: 'בתהליך' },
+    { value: 'scheduled', label: 'ממתין' },
+    { value: 'completed', label: 'הושלם' },
+  ];
 
   if (selectedSession) {
     return (
@@ -165,9 +216,9 @@ export default function CoachDashboard() {
   }
 
   return (
-    <div className="min-h-screen pb-20" dir="rtl">
+    <div className="min-h-screen pb-20 space-y-6" dir="rtl">
       {/* Premium Header */}
-      <div className="sticky top-0 z-10 header-premium text-primary-foreground p-5 shadow-glow">
+      <div className="sticky top-0 z-10 header-premium text-primary-foreground p-5 shadow-glow rounded-b-2xl">
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl glass flex items-center justify-center animate-float">
@@ -240,8 +291,26 @@ export default function CoachDashboard() {
           </Card>
         </section>
 
+        {/* Stats Bar */}
+        <DashboardStats stats={stats} />
+
+        {/* Toolbar */}
+        <DashboardToolbar
+          showSearch
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="חיפוש שיעור..."
+          showViewToggle
+          viewMode={viewMode}
+          onViewChange={setViewMode}
+          showStatusFilter
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          statusOptions={statusOptions}
+        />
+
         {/* Today's Sessions */}
-        <section className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <section className="animate-slide-up">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Calendar className="h-5 w-5 text-primary" />
@@ -249,103 +318,26 @@ export default function CoachDashboard() {
             שיעורים להיום
           </h2>
 
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="card-premium animate-pulse">
-                  <CardContent className="h-32 bg-gradient-to-r from-muted/50 to-muted/30" />
-                </Card>
-              ))}
-            </div>
-          ) : todaySessions.length === 0 ? (
-            <Card className="border-dashed border-2 border-muted bg-muted/20">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-                  <Calendar className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <p className="text-muted-foreground font-medium">אין שיעורים מתוכננים להיום</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {todaySessions.map((session: any, index: number) => {
-                const status = getSessionStatus(session);
-                const enrolledCount = session.enrollments?.filter(
-                  (e: any) => e.status !== 'cancelled'
-                ).length || 0;
-
-                return (
-                  <Card
-                    key={session.id}
-                    className={cn(
-                      'card-premium cursor-pointer card-hover overflow-hidden border-0',
-                      status.glow && 'ring-2 ring-warning shadow-glow animate-glow-pulse'
-                    )}
-                    style={{ animationDelay: `${index * 0.05}s` }}
-                    onClick={() => setSelectedSession(session)}
-                  >
-                    {/* Top accent line */}
-                    <div className={cn(
-                      'h-1 w-full',
-                      status.label === 'בתהליך' && 'gradient-wave',
-                      status.label === 'ממתין' && 'gradient-primary',
-                      status.label === 'הושלם' && 'bg-success',
-                      status.label === 'עבר' && 'bg-muted'
-                    )} />
-                    
-                    <CardContent className="p-5">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-bold text-xl flex items-center gap-2">
-                            {session.class_type?.name || 'שיעור שחייה'}
-                            {status.glow && (
-                              <Sparkles className="h-4 w-4 text-warning animate-pulse-soft" />
-                            )}
-                          </h3>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1.5">
-                            <Clock className="h-4 w-4" />
-                            <span className="font-medium">
-                              {formatSessionTime(session.start_time, session.end_time)}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge 
-                          className={cn(
-                            'text-white px-3 py-1 font-semibold shadow-sm',
-                            status.color,
-                            status.glow && 'animate-pulse-soft'
-                          )}
-                        >
-                          {status.label}
-                        </Badge>
-                      </div>
-
-                      <div className="divider-gradient my-3" />
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="h-4 w-4" />
-                          <span>{session.resource?.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full">
-                          <Users className="h-4 w-4 text-primary" />
-                          <span className="font-bold text-primary">{enrolledCount} רשומים</span>
-                        </div>
-                      </div>
-
-                      <Button
-                        className="w-full mt-4 gap-2 btn-premium h-12 text-base font-semibold"
-                        size="lg"
-                      >
-                        <span>כניסה לשיעור</span>
-                        <ChevronLeft className="h-5 w-5" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          <DashboardGrid
+            viewMode={viewMode}
+            isLoading={isLoading}
+            isEmpty={sessionCards.length === 0}
+            emptyMessage="אין שיעורים מתוכננים להיום"
+            emptyIcon={<Calendar className="h-8 w-8 text-muted-foreground" />}
+          >
+            {sessionCards.map((session) => {
+              const originalSession = todaySessions.find((s: any) => s.id === session.id);
+              return (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  viewMode={viewMode}
+                  onClick={() => setSelectedSession(originalSession)}
+                  showActions={false}
+                />
+              );
+            })}
+          </DashboardGrid>
         </section>
 
         {/* Upcoming Sessions */}

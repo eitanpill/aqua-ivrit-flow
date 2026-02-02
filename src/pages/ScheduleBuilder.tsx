@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -8,14 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Calendar, Loader2, Play, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Calendar, Loader2, Play, Trash2, Clock, Users, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { HEBREW_DAYS } from "@/lib/session-generator";
+import { DashboardStats, DashboardToolbar, DashboardGrid, type ViewMode } from "@/components/dashboard";
+import { cn } from "@/lib/utils";
 
 const DAYS_OPTIONS = [
   { value: "0", label: "ראשון" },
@@ -77,6 +78,9 @@ export default function ScheduleBuilder() {
   const { activeSchoolId, isLoadingSchool } = useSchool();
   const [isTermDialogOpen, setIsTermDialogOpen] = useState(false);
   const [isSeriesDialogOpen, setIsSeriesDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   // Term form state
   const [termName, setTermName] = useState("");
@@ -94,12 +98,11 @@ export default function ScheduleBuilder() {
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [maxParticipants, setMaxParticipants] = useState("8");
   const [recurrenceWeeks, setRecurrenceWeeks] = useState("12");
-  // New: standalone date range (no term needed)
   const [useDateRange, setUseDateRange] = useState(false);
   const [seriesStartDate, setSeriesStartDate] = useState("");
   const [seriesEndDate, setSeriesEndDate] = useState("");
 
-  // Fetch terms - filtered by school_id
+  // Fetch terms
   const { data: terms, isLoading: termsLoading } = useQuery({
     queryKey: ["terms", activeSchoolId],
     queryFn: async () => {
@@ -114,7 +117,7 @@ export default function ScheduleBuilder() {
     enabled: !!activeSchoolId,
   });
 
-  // Fetch schedule series with joins - filtered by school_id
+  // Fetch schedule series
   const { data: seriesList, isLoading: seriesLoading } = useQuery({
     queryKey: ["schedule_series", activeSchoolId],
     queryFn: async () => {
@@ -129,7 +132,6 @@ export default function ScheduleBuilder() {
         .eq("school_id", activeSchoolId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      // Transform data to flatten nested objects
       const rawData = data as unknown as Array<{
         id: string;
         name: string;
@@ -157,7 +159,7 @@ export default function ScheduleBuilder() {
     enabled: !!activeSchoolId,
   });
 
-  // Fetch class types - filtered by school_id
+  // Fetch class types
   const { data: classTypes } = useQuery({
     queryKey: ["class_types", activeSchoolId],
     queryFn: async () => {
@@ -172,7 +174,7 @@ export default function ScheduleBuilder() {
     enabled: !!activeSchoolId,
   });
 
-  // Fetch coaches - filtered by school_id
+  // Fetch coaches
   const { data: coaches } = useQuery({
     queryKey: ["coaches", activeSchoolId],
     queryFn: async () => {
@@ -182,13 +184,12 @@ export default function ScheduleBuilder() {
         .eq("school_id", activeSchoolId)
         .in("role", ["coach", "admin"]);
       if (profilesError) throw profilesError;
-      
       return profilesData as Coach[];
     },
     enabled: !!activeSchoolId,
   });
 
-  // Fetch resources - filtered by school_id
+  // Fetch resources
   const { data: resources } = useQuery({
     queryKey: ["resources", activeSchoolId],
     queryFn: async () => {
@@ -211,6 +212,22 @@ export default function ScheduleBuilder() {
     },
     enabled: !!activeSchoolId,
   });
+
+  // Filter series
+  const filteredSeries = useMemo(() => {
+    if (!seriesList) return [];
+    return seriesList.filter((series) => {
+      if (statusFilter === 'active' && !series.active) return false;
+      if (statusFilter === 'inactive' && series.active) return false;
+      if (searchQuery) {
+        const search = searchQuery.toLowerCase();
+        const name = series.name.toLowerCase();
+        const classType = series.class_type_name?.toLowerCase() || '';
+        if (!name.includes(search) && !classType.includes(search)) return false;
+      }
+      return true;
+    });
+  }, [seriesList, statusFilter, searchQuery]);
 
   // Create term mutation
   const createTermMutation = useMutation({
@@ -258,7 +275,6 @@ export default function ScheduleBuilder() {
         school_id: activeSchoolId,
       };
 
-      // Use either term OR date range
       if (useDateRange) {
         insertData.start_date = seriesStartDate;
         insertData.end_date = seriesEndDate;
@@ -352,7 +368,6 @@ export default function ScheduleBuilder() {
     setSeriesEndDate("");
   };
 
-  // Check if can create series
   const canCreateSeries = seriesName && selectedClassTypeId && selectedDay && (
     useDateRange ? (seriesStartDate && seriesEndDate) : selectedTermId
   );
@@ -361,35 +376,62 @@ export default function ScheduleBuilder() {
     return format(new Date(dateString), "dd/MM/yyyy");
   };
 
+  // Stats
+  const activeSeriesCount = seriesList?.filter(s => s.active).length || 0;
+  const inactiveSeriesCount = seriesList?.filter(s => !s.active).length || 0;
+  const totalTermsCount = terms?.length || 0;
+
+  const stats = [
+    { id: 'active', label: 'סדרות פעילות', value: activeSeriesCount, color: 'text-green-600' },
+    { id: 'inactive', label: 'לא פעילות', value: inactiveSeriesCount, color: 'text-muted-foreground' },
+    { id: 'terms', label: 'עונות', value: totalTermsCount, color: 'text-blue-600' },
+    { id: 'total', label: 'סה"כ סדרות', value: seriesList?.length || 0 },
+  ];
+
+  const statusOptions = [
+    { value: 'all', label: 'הכל' },
+    { value: 'active', label: 'פעילות' },
+    { value: 'inactive', label: 'לא פעילות' },
+  ];
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6 pb-6" dir="rtl">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">בונה מערכת שעות</h1>
-          <p className="text-muted-foreground mt-1">
-            ניהול עונות וסדרות שיעורים חוזרות
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+            <Calendar className="h-7 w-7 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">בונה מערכת שעות</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              ניהול עונות וסדרות שיעורים חוזרות
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* Stats Bar */}
+      <DashboardStats stats={stats} />
+
       <Tabs defaultValue="series" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid grid-cols-2 w-full max-w-md">
           <TabsTrigger value="series">סדרות שיעורים</TabsTrigger>
           <TabsTrigger value="terms">עונות</TabsTrigger>
         </TabsList>
 
         {/* Terms Tab */}
         <TabsContent value="terms" className="space-y-4">
-          <Card>
+          <Card className="card-premium border-0 shadow-premium">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>עונות</CardTitle>
+                <CardTitle className="text-lg">עונות</CardTitle>
                 <CardDescription>הגדרת תקופות לימוד (סמסטרים)</CardDescription>
               </div>
               <Dialog open={isTermDialogOpen} onOpenChange={setIsTermDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="ml-2 h-4 w-4" />
+                  <Button className="btn-premium gap-2">
+                    <Plus className="h-4 w-4" />
                     עונה חדשה
                   </Button>
                 </DialogTrigger>
@@ -452,61 +494,59 @@ export default function ScheduleBuilder() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              {termsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : terms?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>אין עונות עדיין</p>
-                  <p className="text-sm">צור עונה חדשה כדי להתחיל</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>שם</TableHead>
-                      <TableHead>תאריך התחלה</TableHead>
-                      <TableHead>תאריך סיום</TableHead>
-                      <TableHead>סטטוס</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {terms?.map((term) => (
-                      <TableRow key={term.id}>
-                        <TableCell className="font-medium">{term.name}</TableCell>
-                        <TableCell>{formatDate(term.start_date)}</TableCell>
-                        <TableCell>{formatDate(term.end_date)}</TableCell>
-                        <TableCell>
-                          <Badge variant={term.active ? "default" : "secondary"}>
-                            {term.active ? "פעילה" : "לא פעילה"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <DashboardGrid
+                viewMode="list"
+                isLoading={termsLoading}
+                isEmpty={!terms?.length}
+                emptyMessage="אין עונות עדיין - צור עונה חדשה כדי להתחיל"
+                emptyIcon={<Calendar className="h-8 w-8 text-muted-foreground" />}
+              >
+                {terms?.map((term) => (
+                  <Card key={term.id} className="card-hover">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Calendar className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{term.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(term.start_date)} - {formatDate(term.end_date)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={term.active ? "default" : "secondary"}>
+                        {term.active ? "פעילה" : "לא פעילה"}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </DashboardGrid>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Series Tab */}
         <TabsContent value="series" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>סדרות שיעורים</CardTitle>
-                <CardDescription>
-                  הגדר שיעורים חוזרים וצור אותם באופן אוטומטי
-                </CardDescription>
-              </div>
+          {/* Toolbar */}
+          <DashboardToolbar
+            showSearch
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="חיפוש סדרה..."
+            showViewToggle
+            viewMode={viewMode}
+            onViewChange={setViewMode}
+            showStatusFilter
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            statusOptions={statusOptions}
+            actions={
               <Dialog open={isSeriesDialogOpen} onOpenChange={setIsSeriesDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="ml-2 h-4 w-4" />
-                    סדרה חדשה
+                  <Button className="btn-premium gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">סדרה חדשה</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
@@ -516,7 +556,7 @@ export default function ScheduleBuilder() {
                       הגדר שיעור חוזר שייווצר אוטומטית
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                     <div className="space-y-2">
                       <Label htmlFor="seriesName">שם הסדרה</Label>
                       <Input
@@ -527,7 +567,6 @@ export default function ScheduleBuilder() {
                       />
                     </div>
 
-                    {/* Date Range Toggle */}
                     <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                       <div className="space-y-0.5">
                         <Label>הגדר תאריכים ידנית</Label>
@@ -544,7 +583,6 @@ export default function ScheduleBuilder() {
                       />
                     </div>
 
-                    {/* Term OR Date Range */}
                     {useDateRange ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -724,79 +762,186 @@ export default function ScheduleBuilder() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent>
-              {seriesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : seriesList?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>אין סדרות שיעורים עדיין</p>
-                  <p className="text-sm">צור סדרה חדשה כדי להתחיל</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>שם</TableHead>
-                      <TableHead>תקופה</TableHead>
-                      <TableHead>סוג שיעור</TableHead>
-                      <TableHead>יום ושעה</TableHead>
-                      <TableHead>בריכה</TableHead>
-                      <TableHead>שבועות</TableHead>
-                      <TableHead>פעולות</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {seriesList?.map((series) => (
-                      <TableRow key={series.id}>
-                        <TableCell className="font-medium">{series.name}</TableCell>
-                        <TableCell>
-                          {series.term_name || (series.start_date && series.end_date 
-                            ? `${formatDate(series.start_date)} - ${formatDate(series.end_date)}`
-                            : "-")}
-                        </TableCell>
-                        <TableCell>{series.class_type_name}</TableCell>
-                        <TableCell>
-                          {HEBREW_DAYS[series.day_of_week]} {series.start_time.slice(0, 5)}
-                        </TableCell>
-                        <TableCell>{series.resource_name || "-"}</TableCell>
-                        <TableCell>{series.recurrence_weeks}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => generateSessionsMutation.mutate(series.id)}
-                              disabled={generateSessionsMutation.isPending}
-                            >
-                              {generateSessionsMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Play className="h-4 w-4" />
-                              )}
-                              <span className="mr-1">הפק שיעורים</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteSeriesMutation.mutate(series.id)}
-                              disabled={deleteSeriesMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+            }
+          />
+
+          {/* Series Grid */}
+          <DashboardGrid
+            viewMode={viewMode}
+            isLoading={seriesLoading}
+            isEmpty={!filteredSeries.length}
+            emptyMessage="אין סדרות שיעורים - צור סדרה חדשה כדי להתחיל"
+            emptyIcon={<Calendar className="h-8 w-8 text-muted-foreground" />}
+          >
+            {filteredSeries.map((series) => (
+              <SeriesCard
+                key={series.id}
+                series={series}
+                viewMode={viewMode}
+                onGenerate={() => generateSessionsMutation.mutate(series.id)}
+                onDelete={() => deleteSeriesMutation.mutate(series.id)}
+                isGenerating={generateSessionsMutation.isPending}
+                isDeleting={deleteSeriesMutation.isPending}
+              />
+            ))}
+          </DashboardGrid>
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Series Card Component
+interface SeriesCardProps {
+  series: ScheduleSeries;
+  viewMode: ViewMode;
+  onGenerate: () => void;
+  onDelete: () => void;
+  isGenerating: boolean;
+  isDeleting: boolean;
+}
+
+function SeriesCard({ series, viewMode, onGenerate, onDelete, isGenerating, isDeleting }: SeriesCardProps) {
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), "dd/MM/yyyy");
+  };
+
+  if (viewMode === 'list') {
+    return (
+      <Card className="card-hover">
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div className={cn(
+            "w-1 h-12 rounded-full self-center",
+            series.active ? "bg-green-500" : "bg-muted"
+          )} />
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              <h3 className="font-bold text-base truncate">{series.name}</h3>
+              <Badge variant={series.active ? "default" : "secondary"} className="shrink-0">
+                {series.active ? "פעילה" : "לא פעילה"}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground truncate mt-0.5">
+              {series.class_type_name}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
+            <Clock className="h-4 w-4" />
+            <span>{HEBREW_DAYS[series.day_of_week]} {series.start_time.slice(0, 5)}</span>
+          </div>
+
+          {series.resource_name && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0 hidden md:flex">
+              <MapPin className="h-4 w-4" />
+              <span className="truncate max-w-[100px]">{series.resource_name}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 text-sm shrink-0">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-primary">{series.max_participants}</span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="gap-1"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">הפק</span>
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onDelete}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Grid view
+  return (
+    <Card className="card-hover card-premium overflow-hidden">
+      <div className={cn(
+        "h-1 w-full",
+        series.active ? "gradient-primary" : "bg-muted"
+      )} />
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-bold text-lg line-clamp-1">{series.name}</h3>
+            <p className="text-sm text-muted-foreground">{series.class_type_name}</p>
+          </div>
+          <Badge variant={series.active ? "default" : "secondary"}>
+            {series.active ? "פעילה" : "לא פעילה"}
+          </Badge>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4 shrink-0" />
+            <span>{HEBREW_DAYS[series.day_of_week]} {series.start_time.slice(0, 5)}</span>
+          </div>
+          {series.resource_name && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span className="truncate">{series.resource_name}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span>
+              {series.term_name || (series.start_date && series.end_date 
+                ? `${formatDate(series.start_date)} - ${formatDate(series.end_date)}`
+                : "-")}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-border/50">
+          <div className="flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-full">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span className="text-sm font-bold text-primary">{series.max_participants} משתתפים</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{series.recurrence_weeks} שבועות</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            className="flex-1 gap-2"
+            onClick={onGenerate}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            הפק שיעורים
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            disabled={isDeleting}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
