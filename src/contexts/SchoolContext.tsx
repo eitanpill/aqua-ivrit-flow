@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,12 +33,16 @@ const DEMO_SCHOOL_SLUGS = ['demo-school', 'demo', 'demo-swimming-school'];
 
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [currentSchool, setCurrentSchool] = useState<School | null>(null);
   const [allSchools, setAllSchools] = useState<School[]>([]);
   const [activeSchoolId, setActiveSchoolIdState] = useState<string | null>(null);
   const [isLoadingSchool, setIsLoadingSchool] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  
+  // Check if we're in demo mode via URL param
+  const isDemoModeFromUrl = searchParams.get("demo") === "true";
 
   // Check if user is a platform admin via database function
   const checkSuperAdmin = async () => {
@@ -106,6 +111,22 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Fetch demo school by slug
+  const fetchDemoSchool = async (): Promise<School | null> => {
+    try {
+      const { data: school } = await supabase
+        .from('schools')
+        .select('*')
+        .eq('slug', 'demo-school')
+        .single();
+
+      return school;
+    } catch (error) {
+      console.error('Error fetching demo school:', error);
+      return null;
+    }
+  };
+
   const refreshSchools = async () => {
     await Promise.all([fetchUserSchool(), fetchAllSchools()]);
   };
@@ -127,6 +148,24 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   // Initialize school context
   useEffect(() => {
     const initializeSchoolContext = async () => {
+      // DEMO MODE: If ?demo=true and no user, load demo school
+      if (!user && isDemoModeFromUrl) {
+        setIsLoadingSchool(true);
+        try {
+          const demoSchool = await fetchDemoSchool();
+          if (demoSchool) {
+            setCurrentSchool(demoSchool);
+            setActiveSchoolIdState(demoSchool.id);
+            setAllSchools([demoSchool]);
+          }
+        } catch (error) {
+          console.error('Error loading demo school:', error);
+        } finally {
+          setIsLoadingSchool(false);
+        }
+        return;
+      }
+
       if (!user) {
         setIsLoadingSchool(false);
         setActiveSchoolIdState(null);
@@ -177,7 +216,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeSchoolContext();
-  }, [user?.id]);
+  }, [user?.id, isDemoModeFromUrl]);
 
   // Compute if viewing a demo school
   const activeSchool = allSchools.find(s => s.id === activeSchoolId) || currentSchool;
