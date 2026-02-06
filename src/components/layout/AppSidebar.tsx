@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck, Award, RefreshCw, Wallet } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Settings, LogOut, Waves, GraduationCap, Package, CalendarDays, UserCircle, CalendarPlus, ClipboardList, Receipt, BarChart3, CalendarCog, UserCheck, Award, RefreshCw, Wallet, Mail } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -253,7 +253,16 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-2">
+        {/* Support Email */}
+        <a
+          href="mailto:Support@aqua-swim.co.il"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-accent/50 rounded-lg transition-colors"
+        >
+          <Mail className="h-5 w-5 flex-shrink-0" />
+          {!effectiveCollapsed && <span>Support@aqua-swim.co.il</span>}
+        </a>
+        
         <Button
           variant="ghost"
           onClick={handleLogout}
