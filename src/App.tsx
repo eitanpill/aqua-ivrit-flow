@@ -56,12 +56,12 @@ function DashboardWithOnboarding() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <DeviceProvider>
-      <AuthProvider>
-        <SchoolProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
+          <SchoolProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
               <DemoModeProvider>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
@@ -113,10 +113,10 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </DemoModeProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </SchoolProvider>
-      </AuthProvider>
+            </TooltipProvider>
+          </SchoolProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </DeviceProvider>
   </QueryClientProvider>
 );

@@ -1,4 +1,5 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,6 +14,7 @@ interface AuthContextType {
   isCoach: boolean;
   isCustomer: boolean;
   isStaff: boolean;
+  isDemoMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [searchParams] = useSearchParams();
+  
+  // Check if we're in demo mode via URL param
+  const isDemoModeFromUrl = searchParams.get("demo") === "true";
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -36,7 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fetchUserRole(session.user.id);
           }, 0);
         } else {
-          setRole(null);
+          // In demo mode without auth, default to admin role
+          if (isDemoModeFromUrl) {
+            setRole("admin");
+          } else {
+            setRole(null);
+          }
           setLoading(false);
         }
       }
@@ -50,12 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         fetchUserRole(session.user.id);
       } else {
+        // In demo mode without auth, default to admin role
+        if (isDemoModeFromUrl) {
+          setRole("admin");
+        }
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isDemoModeFromUrl]);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -93,15 +108,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // In demo mode, use simulated role from localStorage if available
+  const getDemoRole = (): AppRole => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('demoRole');
+      if (stored === 'admin' || stored === 'coach' || stored === 'customer') {
+        return stored;
+      }
+    }
+    return 'admin'; // Default to admin in demo mode
+  };
+
+  const effectiveRole = isDemoModeFromUrl && !user ? getDemoRole() : role;
+
   const value: AuthContextType = {
     user,
     session,
     loading,
-    role,
-    isAdmin: role === "admin",
-    isCoach: role === "coach",
-    isCustomer: role === "customer",
-    isStaff: role === "admin" || role === "coach",
+    role: effectiveRole,
+    isAdmin: effectiveRole === "admin",
+    isCoach: effectiveRole === "coach",
+    isCustomer: effectiveRole === "customer",
+    isStaff: effectiveRole === "admin" || effectiveRole === "coach",
+    isDemoMode: isDemoModeFromUrl,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
