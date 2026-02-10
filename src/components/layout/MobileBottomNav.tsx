@@ -188,7 +188,7 @@ export function MobileBottomNav() {
               </div>
             </SheetHeader>
             
-            <ScrollArea className="h-[calc(100vh-140px)]">
+            <ScrollArea className="h-[calc(100vh-200px)]">
               <div className="p-2 space-y-4">
                 {menuSections.map((section, sectionIndex) => (
                   <div key={section.title}>
