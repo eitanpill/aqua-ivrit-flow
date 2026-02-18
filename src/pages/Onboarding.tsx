@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ export default function Onboarding() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin, loading: authLoading } = useAuth();
+  const { activeSchoolId } = useSchool();
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
     schoolName: "",
@@ -110,6 +112,7 @@ export default function Onboarding() {
         name: data.location.name || data.schoolName,
         address: data.location.address || null,
         phone: data.location.phone || null,
+        school_id: activeSchoolId,
       }]);
       if (error) throw error;
     },
@@ -122,6 +125,7 @@ export default function Onboarding() {
         start_date: data.season.startDate,
         end_date: data.season.endDate,
         active: true,
+        school_id: activeSchoolId,
       }]);
       if (error) throw error;
     },

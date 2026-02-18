@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, XCircle, Settings2, Loader2 } from "lucide-react";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface Location {
   id: string;
@@ -38,6 +39,7 @@ const CANCELLATION_REASONS = [
 export function EmergencyOperations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeSchoolId } = useSchool();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -47,9 +49,9 @@ export function EmergencyOperations() {
 
   // Fetch locations with their resources
   const { data: locations = [] } = useQuery({
-    queryKey: ["locations-emergency"],
+    queryKey: ["locations-emergency", activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("locations")
         .select(`
           id, 
@@ -57,9 +59,16 @@ export function EmergencyOperations() {
           resources(id)
         `)
         .order("name");
+
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as (Location & { resources: { id: string }[] })[];
     },
+    enabled: !!activeSchoolId,
   });
 
   // Mass cancellation mutation
