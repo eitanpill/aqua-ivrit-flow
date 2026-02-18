@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.daily-reminders]
 verify_jwt = false
+
+[functions.trial-payment-reminder]
+verify_jwt = false
+
+[functions.subscription-payment]
+verify_jwt = false

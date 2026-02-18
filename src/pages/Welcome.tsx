@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
-import { Waves, Building2, Eye, ArrowLeft, Sparkles, CreditCard } from "lucide-react";
+import { Waves, Building2, Eye, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function Welcome() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("school_id, first_name, last_name, subscription_paid")
+        .select("school_id, first_name, last_name")
         .eq("id", user.id)
         .single();
       
@@ -38,20 +38,14 @@ export default function Welcome() {
     return null;
   }
 
-  // If user has paid but no school, redirect to school setup
-  if (!isLoading && profile?.subscription_paid && !profile?.school_id) {
-    navigate("/auth/setup-school", { replace: true });
-    return null;
-  }
-
   const handleDemoMode = () => {
     // Navigate to dashboard with demo query param
     navigate("/dashboard?demo=true");
   };
 
   const handleCreateSchool = () => {
-    // Navigate to subscription payment page
-    navigate("/auth/subscription");
+    // Navigate directly to school setup - no payment required
+    navigate("/auth/setup-school");
   };
 
   if (isLoading) {
@@ -126,11 +120,7 @@ export default function Welcome() {
               <CardDescription className="text-base">
                 מוכן לצאת לדרך? הקמת סביבה חדשה ונקייה לניהול העסק שלך.
               </CardDescription>
-              <div className="mt-auto pt-4 space-y-1">
-                <span className="inline-flex items-center gap-2 text-primary font-medium text-sm">
-                  <CreditCard className="h-4 w-4" />
-                  נדרשת הקמת הוראת קבע
-                </span>
+              <div className="mt-auto pt-4">
                 <span className="inline-flex items-center gap-2 text-primary font-medium text-sm">
                   בואו נתחיל
                   <ArrowLeft className="h-4 w-4" />
