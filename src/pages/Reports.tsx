@@ -211,16 +211,17 @@ const Reports = () => {
 
   // Fetch attendance data for export
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
-    queryKey: ["attendance-report", selectedMonth],
+    queryKey: ["attendance-report", selectedMonth, activeSchoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("attendance")
         .select(`
           id,
           status,
           marked_at,
-          sessions (
+          sessions!inner (
             start_time,
+            school_id,
             class_types (name),
             coach:profiles!sessions_coach_id_fkey (first_name, last_name)
           ),
@@ -230,6 +231,12 @@ const Reports = () => {
         .lte("marked_at", monthEnd.toISOString())
         .order("marked_at", { ascending: false });
 
+      // CRITICAL: Filter by school_id through sessions
+      if (activeSchoolId) {
+        query = query.eq("sessions.school_id", activeSchoolId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Array<{
         id: string;

@@ -3,26 +3,33 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useSchool } from "@/contexts/SchoolContext";
 
 export function useOnboardingCheck() {
   const { isAdmin, loading: authLoading } = useAuth();
+  const { activeSchoolId, isLoadingSchool } = useSchool();
   const navigate = useNavigate();
   const location = useLocation();
   const [shouldCheck, setShouldCheck] = useState(true);
 
-  // Check if locations exist
+  // Check if locations exist for THIS school
   const { data: hasLocations, isLoading: locationsLoading } = useQuery({
-    queryKey: ["onboarding-check-locations"],
+    queryKey: ["onboarding-check-locations", activeSchoolId],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("locations")
         .select("*", { count: "exact", head: true });
 
+      if (activeSchoolId) {
+        query = query.eq("school_id", activeSchoolId);
+      }
+
+      const { count, error } = await query;
       if (error) throw error;
       return (count || 0) > 0;
     },
-    enabled: isAdmin && shouldCheck,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    enabled: isAdmin && shouldCheck && !!activeSchoolId && !isLoadingSchool,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
