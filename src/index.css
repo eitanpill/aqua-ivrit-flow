@@ -173,17 +173,24 @@
 
   /* Glass morphism */
   .glass {
-    background: var(--gradient-glass);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border) / 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   }
 
   .glass-strong {
-    background: hsl(var(--card) / 0.8);
+    background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid hsl(var(--border) / 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  /* Neon border */
+  .neon-border {
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.2), inset 0 0 5px hsl(var(--primary) / 0.1);
   }
 
   /* Premium shadows */
