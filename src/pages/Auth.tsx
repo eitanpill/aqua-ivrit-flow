@@ -148,7 +148,7 @@ export default function Auth() {
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session && !isSigningUp) {
+      if (session && !isSigningUpRef.current) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("school_id")
