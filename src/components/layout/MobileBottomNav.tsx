@@ -139,7 +139,7 @@ export function MobileBottomNav() {
   const menuSections = getMenuSections();
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-area-inset-bottom">
+    <nav className="fixed bottom-0 inset-x-0 z-50 backdrop-blur-xl border-t border-border/30 safe-area-inset-bottom" style={{ background: 'rgba(10, 25, 47, 0.9)' }}>
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.url;
