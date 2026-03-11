@@ -376,6 +376,7 @@ export default function Auth() {
     } finally {
       setIsLoading(false);
       setIsSigningUp(false);
+      isSigningUpRef.current = false;
     }
   };
 
