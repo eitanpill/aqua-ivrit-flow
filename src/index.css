@@ -460,6 +460,12 @@
 }
 
 /* Keyframe animations */
+@keyframes water-drift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 @keyframes shimmer {
   0% { left: -100%; }
   100% { left: 100%; }
