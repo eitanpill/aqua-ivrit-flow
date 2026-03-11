@@ -290,6 +290,7 @@ export default function Auth() {
         });
         setIsLoading(false);
         setIsSigningUp(false);
+        isSigningUpRef.current = false;
         return;
       }
 
