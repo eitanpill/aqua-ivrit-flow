@@ -253,6 +253,7 @@ export default function Auth() {
 
     setIsLoading(true);
     setIsSigningUp(true); // Prevent automatic redirect during signup
+    isSigningUpRef.current = true;
 
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
