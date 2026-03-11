@@ -123,13 +123,14 @@ export default function Auth() {
 
   // Track if we're in the middle of signup to prevent redirect
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const isSigningUpRef = useRef(false);
 
   useEffect(() => {
     // Don't set up redirect listener if we're in the process of creating a school
     if (isSigningUp) return;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session && !isSigningUp) {
+      if (session && !isSigningUpRef.current) {
         // Check if user has a school before redirecting
         const { data: profile } = await supabase
           .from("profiles")
