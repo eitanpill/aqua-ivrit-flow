@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -123,13 +123,14 @@ export default function Auth() {
 
   // Track if we're in the middle of signup to prevent redirect
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const isSigningUpRef = useRef(false);
 
   useEffect(() => {
     // Don't set up redirect listener if we're in the process of creating a school
     if (isSigningUp) return;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session && !isSigningUp) {
+      if (session && !isSigningUpRef.current) {
         // Check if user has a school before redirecting
         const { data: profile } = await supabase
           .from("profiles")
@@ -147,7 +148,7 @@ export default function Auth() {
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session && !isSigningUp) {
+      if (session && !isSigningUpRef.current) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("school_id")
@@ -252,6 +253,7 @@ export default function Auth() {
 
     setIsLoading(true);
     setIsSigningUp(true); // Prevent automatic redirect during signup
+    isSigningUpRef.current = true;
 
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -276,6 +278,7 @@ export default function Auth() {
         });
         setIsLoading(false);
         setIsSigningUp(false);
+        isSigningUpRef.current = false;
         return;
       }
 
@@ -287,6 +290,7 @@ export default function Auth() {
         });
         setIsLoading(false);
         setIsSigningUp(false);
+        isSigningUpRef.current = false;
         return;
       }
 
@@ -372,6 +376,7 @@ export default function Auth() {
     } finally {
       setIsLoading(false);
       setIsSigningUp(false);
+      isSigningUpRef.current = false;
     }
   };
 
