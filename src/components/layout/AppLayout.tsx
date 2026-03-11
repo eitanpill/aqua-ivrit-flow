@@ -31,7 +31,7 @@ function MainContent() {
       className="flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ease-linear overflow-x-hidden"
       style={getMarginStyle()}
     >
-      <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card flex-shrink-0 sticky top-0 z-10">
+      <header className="h-14 flex items-center justify-between border-b border-border/30 px-4 flex-shrink-0 sticky top-0 z-10 backdrop-blur-xl" style={{ background: 'rgba(255, 255, 255, 0.03)' }}>
         {/* Show sidebar trigger only on desktop */}
         {isDesktop && (
           <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
