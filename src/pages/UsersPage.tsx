@@ -171,49 +171,45 @@ export default function UsersPage() {
     },
   ];
 
-  // Define actions for AdaptiveTable
-  const getActions = (): AdaptiveAction<UserProfile>[] => [
-    {
-      label: "ערוך פרטים",
-      icon: Pencil,
-      onClick: (user) => {
-        if (user.id !== currentUser?.id) {
-          setEditUser(user);
-        }
+  // Define actions for AdaptiveTable - scoped per row
+  const getActions = (user: UserProfile): AdaptiveAction<UserProfile>[] => {
+    const actions: AdaptiveAction<UserProfile>[] = [
+      {
+        label: "ערוך פרטים",
+        icon: Pencil,
+        onClick: (u) => setEditUser(u),
       },
-    },
-    {
-      label: "פרטי מאמן",
-      icon: Eye,
-      onClick: (user) => {
-        if (user.role === "coach") {
-          const userName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || "ללא שם";
-          setCoachDetails({ id: user.id, name: userName });
-        }
-      },
-    },
-    {
-      label: "ניהול הרשמות",
-      icon: Calendar,
-      onClick: (user) => {
-        if (user.id !== currentUser?.id) {
-          openEnrollmentSheet(user);
-        }
-      },
-    },
-    {
+    ];
+
+    if (user.role === "coach") {
+      actions.push({
+        label: "פרטי מאמן",
+        icon: Eye,
+        onClick: (u) => {
+          const name = `${u.first_name || ""} ${u.last_name || ""}`.trim() || "ללא שם";
+          setCoachDetails({ id: u.id, name });
+        },
+      });
+    }
+
+    if (user.role === "customer") {
+      actions.push({
+        label: "ניהול הרשמות",
+        icon: Calendar,
+        onClick: (u) => openEnrollmentSheet(u),
+      });
+    }
+
+    actions.push({
       label: "מחק משתמש",
       icon: Trash2,
       variant: "destructive",
-      onClick: (user) => {
-        if (user.id !== currentUser?.id) {
-          setDeleteUser(user);
-        }
-      },
-    },
-  ];
+      onClick: (u) => setDeleteUser(u),
+    });
 
-  // Filter out current user from actions
+    return actions;
+  };
+
   const filteredData = filteredUsers?.filter(user => user.id !== currentUser?.id) || [];
   const currentUserData = filteredUsers?.find(user => user.id === currentUser?.id);
 
@@ -223,7 +219,9 @@ export default function UsersPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">ניהול משתמשים</h1>
-            <p className="text-muted-foreground mt-1">צפייה, יצירה ועריכת משתמשים במערכת</p>
+            <p className="text-muted-foreground mt-1">
+              {users ? `${users.length} משתמשים רשומים` : "צפייה, יצירה ועריכת משתמשים"}
+            </p>
           </div>
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <UserPlus className="h-4 w-4 ml-2" />
@@ -281,7 +279,7 @@ export default function UsersPage() {
                 <AdaptiveTable
                   data={filteredData}
                   columns={columns}
-                  actions={getActions()}
+                  actions={getActions}
                   keyExtractor={(user) => user.id}
                   emptyMessage="לא נמצאו משתמשים"
                 />

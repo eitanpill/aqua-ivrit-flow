@@ -23,9 +23,7 @@ export interface AdaptiveColumn<T> {
   key: string;
   header: string;
   render: (item: T) => React.ReactNode;
-  // For mobile cards, mark as "primary" to show prominently
   primary?: boolean;
-  // Hide on mobile card view
   hideOnMobile?: boolean;
 }
 
@@ -36,15 +34,73 @@ export interface AdaptiveAction<T> {
   variant?: "default" | "destructive";
 }
 
+type ActionsOrFn<T> = AdaptiveAction<T>[] | ((item: T) => AdaptiveAction<T>[]);
+
 interface AdaptiveTableProps<T> {
   data: T[];
   columns: AdaptiveColumn<T>[];
-  actions?: AdaptiveAction<T>[];
+  actions?: ActionsOrFn<T>;
   keyExtractor: (item: T) => string;
   emptyMessage?: string;
   className?: string;
-  // Optional: custom mobile card renderer
   renderMobileCard?: (item: T, actions?: AdaptiveAction<T>[]) => React.ReactNode;
+}
+
+function resolveActions<T>(actions: ActionsOrFn<T> | undefined, item: T): AdaptiveAction<T>[] {
+  if (!actions) return [];
+  return typeof actions === "function" ? actions(item) : actions;
+}
+
+function ActionsDropdown<T>({ actions, item }: { actions: AdaptiveAction<T>[]; item: T }) {
+  if (actions.length === 0) return null;
+
+  if (actions.length <= 2) {
+    return (
+      <div className="flex items-center justify-center gap-1">
+        {actions.map((action, idx) => (
+          <Button
+            key={idx}
+            variant={action.variant === "destructive" ? "destructive" : "ghost"}
+            size="sm"
+            onClick={() => action.onClick(item)}
+            className="h-8 px-2"
+            title={action.label}
+          >
+            {action.icon && <action.icon className="h-4 w-4" />}
+            <span className="sr-only">{action.label}</span>
+          </Button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreVertical className="h-4 w-4" />
+            <span className="sr-only">פעולות</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="bg-popover">
+          {actions.map((action, idx) => (
+            <DropdownMenuItem
+              key={idx}
+              onClick={() => action.onClick(item)}
+              className={cn(
+                "gap-2",
+                action.variant === "destructive" && "text-destructive focus:text-destructive"
+              )}
+            >
+              {action.icon && <action.icon className="h-4 w-4" />}
+              {action.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 export function AdaptiveTable<T>({
@@ -66,23 +122,25 @@ export function AdaptiveTable<T>({
     );
   }
 
+  const hasActions = !!actions;
+
   // Mobile Card View
   if (isMobile) {
     return (
       <div className={cn("space-y-3", className)}>
         {data.map((item) => {
+          const rowActions = resolveActions(actions, item);
+
           if (renderMobileCard) {
             return (
               <React.Fragment key={keyExtractor(item)}>
-                {renderMobileCard(item, actions)}
+                {renderMobileCard(item, rowActions)}
               </React.Fragment>
             );
           }
 
           const primaryColumns = columns.filter((col) => col.primary);
-          const secondaryColumns = columns.filter(
-            (col) => !col.primary && !col.hideOnMobile
-          );
+          const secondaryColumns = columns.filter((col) => !col.primary && !col.hideOnMobile);
 
           return (
             <Card key={keyExtractor(item)} className="overflow-hidden">
@@ -94,7 +152,7 @@ export function AdaptiveTable<T>({
                     </CardTitle>
                   ))}
                 </div>
-                {actions && actions.length > 0 && (
+                {rowActions.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
@@ -103,7 +161,7 @@ export function AdaptiveTable<T>({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-popover">
-                      {actions.map((action, idx) => (
+                      {rowActions.map((action, idx) => (
                         <DropdownMenuItem
                           key={idx}
                           onClick={() => action.onClick(item)}
@@ -148,65 +206,27 @@ export function AdaptiveTable<T>({
                 {col.header}
               </TableHead>
             ))}
-            {actions && actions.length > 0 && (
-              <TableHead className="w-[100px] text-center">פעולות</TableHead>
+            {hasActions && (
+              <TableHead className="w-[80px] text-center">פעולות</TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((item) => (
-            <TableRow key={keyExtractor(item)} className="hover:bg-muted/30">
-              {columns.map((col) => (
-                <TableCell key={col.key}>{col.render(item)}</TableCell>
-              ))}
-              {actions && actions.length > 0 && (
-                <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    {actions.length <= 2 ? (
-                      // Show buttons directly if 2 or fewer actions
-                      actions.map((action, idx) => (
-                        <Button
-                          key={idx}
-                          variant={action.variant === "destructive" ? "destructive" : "ghost"}
-                          size="sm"
-                          onClick={() => action.onClick(item)}
-                          className="h-8 px-2"
-                        >
-                          {action.icon && <action.icon className="h-4 w-4" />}
-                          <span className="sr-only">{action.label}</span>
-                        </Button>
-                      ))
-                    ) : (
-                      // Use dropdown for 3+ actions
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">פעולות</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-popover">
-                          {actions.map((action, idx) => (
-                            <DropdownMenuItem
-                              key={idx}
-                              onClick={() => action.onClick(item)}
-                              className={cn(
-                                "gap-2",
-                                action.variant === "destructive" && "text-destructive focus:text-destructive"
-                              )}
-                            >
-                              {action.icon && <action.icon className="h-4 w-4" />}
-                              {action.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
+          {data.map((item) => {
+            const rowActions = resolveActions(actions, item);
+            return (
+              <TableRow key={keyExtractor(item)} className="hover:bg-muted/30">
+                {columns.map((col) => (
+                  <TableCell key={col.key}>{col.render(item)}</TableCell>
+                ))}
+                {hasActions && (
+                  <TableCell>
+                    <ActionsDropdown actions={rowActions} item={item} />
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
