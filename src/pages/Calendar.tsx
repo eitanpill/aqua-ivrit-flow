@@ -286,19 +286,19 @@ export default function Calendar() {
           )}
         </div>
 
-        {/* Week Navigation */}
+        {/* Week Navigation - RTL: right arrow = next week (forward), left arrow = prev week (back) */}
         <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleToday}>
             היום
           </Button>
           <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handleNextWeek}>
+            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handleNextWeek} title="שבוע הבא">
               <ChevronRight className="h-4 w-4" />
             </Button>
             <span className="text-xs sm:text-sm font-medium min-w-[140px] sm:min-w-[200px] text-center bg-muted/50 px-3 py-1.5 rounded-lg">
-              {format(weekStart, 'dd')} - {format(weekEnd, 'dd')} {HEBREW_MONTHS[weekStart.getMonth()]}
+              {format(weekStart, 'dd')} - {format(weekEnd, 'dd')} {HEBREW_MONTHS[weekStart.getMonth()]} {format(weekStart, 'yyyy')}
             </span>
-            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handlePreviousWeek}>
+            <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={handlePreviousWeek} title="שבוע קודם">
               <ChevronLeft className="h-4 w-4" />
             </Button>
           </div>

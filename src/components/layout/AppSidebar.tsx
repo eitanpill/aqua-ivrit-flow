@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,17 +28,25 @@ type MenuItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "מנהל",
+  coach: "מאמן",
+  customer: "לקוח",
+};
+
 export function AppSidebar() {
   const { state, setOpenMobile, setOpen } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin, isCoach, isCustomer, isStaff } = useAuth();
+  const { isAdmin, isCoach, isCustomer, isStaff, user, role } = useAuth();
   const isMobile = useIsMobile();
   const { isTablet } = useDeviceType();
   const [isHovered, setIsHovered] = useState(false);
 
-  // Tablet: expand on hover
+  // Calculate effective collapsed state before using it
+  const effectiveCollapsed = isTablet ? !isHovered : collapsed;
+
   const handleMouseEnter = () => {
     if (isTablet) {
       setIsHovered(true);
@@ -57,32 +66,24 @@ export function AppSidebar() {
     navigate("/auth");
   };
 
-  // Close mobile sidebar when navigating
   const handleNavClick = () => {
-    if (isMobile) {
-      setOpenMobile(false);
-    }
+    if (isMobile) setOpenMobile(false);
   };
 
-  // Customer-only navigation (simple and focused)
-  const getCustomerOnlyMenuItems = (): MenuItem[] => {
-    return [
-      { title: "בית", url: "/dashboard", icon: LayoutDashboard },
-      { title: "המשפחה שלי", url: "/family", icon: UserCircle },
-      { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
-      { title: "תשלומים", url: "/billing", icon: Receipt },
-      { title: "הגדרות", url: "/settings", icon: Settings },
-    ];
-  };
+  const getCustomerOnlyMenuItems = (): MenuItem[] => [
+    { title: "בית", url: "/dashboard", icon: LayoutDashboard },
+    { title: "המשפחה שלי", url: "/family", icon: UserCircle },
+    { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
+    { title: "תשלומים", url: "/billing", icon: Receipt },
+    { title: "הגדרות", url: "/settings", icon: Settings },
+  ];
 
-  // Staff menu items (Admin + Coach)
   const getMainMenuItems = (): MenuItem[] => {
     const items: MenuItem[] = [
       { title: "לוח בקרה", url: "/dashboard", icon: LayoutDashboard },
       { title: "יומן שיעורים", url: "/calendar", icon: CalendarDays },
     ];
 
-    // Admin only
     if (isAdmin) {
       items.push(
         { title: "בונה מערכת שעות", url: "/schedule-builder", icon: CalendarCog },
@@ -97,21 +98,16 @@ export function AppSidebar() {
     return items;
   };
 
-  const getCoachMenuItems = (): MenuItem[] => {
-    return [
-      { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
-      { title: "שוק החלפות", url: "/substitutions", icon: RefreshCw },
-    ];
-  };
+  const getCoachMenuItems = (): MenuItem[] => [
+    { title: "המשמרת שלי", url: "/coach", icon: ClipboardList },
+    { title: "שוק החלפות", url: "/substitutions", icon: RefreshCw },
+  ];
 
-  const getStaffCustomerMenuItems = (): MenuItem[] => {
-    // Staff can also access customer features (for testing or personal use)
-    return [
-      { title: "המשפחה שלי", url: "/family", icon: UserCircle },
-      { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
-      { title: "תשלומים", url: "/billing", icon: Receipt },
-    ];
-  };
+  const getStaffCustomerMenuItems = (): MenuItem[] => [
+    { title: "המשפחה שלי", url: "/family", icon: UserCircle },
+    { title: "הרשמה לשיעורים", url: "/booking", icon: CalendarPlus },
+    { title: "תשלומים", url: "/billing", icon: Receipt },
+  ];
 
   const getAcademicMenuItems = (): MenuItem[] => {
     if (!isAdmin) return [];
@@ -124,15 +120,10 @@ export function AppSidebar() {
 
   const getSettingsMenuItems = (): MenuItem[] => {
     if (!isAdmin) return [];
-    return [
-      { title: "הגדרות מערכת", url: "/settings", icon: Settings },
-    ];
+    return [{ title: "הגדרות מערכת", url: "/settings", icon: Settings }];
   };
 
-  // For customers, show simplified menu
   const customerOnlyMenuItems = isCustomer && !isStaff ? getCustomerOnlyMenuItems() : [];
-  
-  // For staff, show full menu
   const mainMenuItems = isStaff ? getMainMenuItems() : [];
   const coachMenuItems = isStaff ? getCoachMenuItems() : [];
   const staffCustomerMenuItems = isStaff ? getStaffCustomerMenuItems() : [];
@@ -141,7 +132,7 @@ export function AppSidebar() {
 
   const renderMenuItems = (items: MenuItem[]) => {
     if (items.length === 0) return null;
-    
+
     return (
       <SidebarMenu>
         {items.map((item) => {
@@ -170,13 +161,19 @@ export function AppSidebar() {
     );
   };
 
-  // Calculate effective collapsed state (tablet uses hover)
-  const effectiveCollapsed = isTablet ? !isHovered : collapsed;
+  // User initials for avatar
+  const userInitials = user?.user_metadata
+    ? `${(user.user_metadata.first_name || '')[0] || ''}${(user.user_metadata.last_name || '')[0] || ''}`.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'
+    : user?.email?.[0]?.toUpperCase() || '?';
+
+  const userName = user?.user_metadata?.first_name
+    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim()
+    : user?.email || '';
 
   return (
-    <Sidebar 
-      side="right" 
-      collapsible="icon" 
+    <Sidebar
+      side="right"
+      collapsible="icon"
       className="border-s border-sidebar-border flex-shrink-0 transition-all duration-200"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -196,73 +193,75 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Customer-only simplified menu */}
         {customerOnlyMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">תפריט</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(customerOnlyMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(customerOnlyMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
 
-        {/* Staff menu sections */}
         {mainMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">תפריט ראשי</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(mainMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(mainMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {coachMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">מאמנים</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(coachMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(coachMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {staffCustomerMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">לקוחות</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(staffCustomerMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(staffCustomerMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {academicMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">אקדמיה</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(academicMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(academicMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {settingsMenuItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground">מערכת</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderMenuItems(settingsMenuItems)}
-            </SidebarGroupContent>
+            <SidebarGroupContent>{renderMenuItems(settingsMenuItems)}</SidebarGroupContent>
           </SidebarGroup>
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 space-y-2">
+      <SidebarFooter className="p-3 space-y-2">
+        {/* User Profile Card */}
+        {user && !effectiveCollapsed && (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-sidebar-accent/30 border border-sidebar-border/50">
+            <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+              <p className="text-xs text-muted-foreground">{ROLE_LABELS[role || ''] || ''}</p>
+            </div>
+          </div>
+        )}
+
         {/* Support Email */}
         <a
           href="mailto:Support@aqua-swim.co.il"
           className="flex items-center gap-3 px-3 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-accent/50 rounded-lg transition-colors"
+          title="Support@aqua-swim.co.il"
         >
           <Mail className="h-5 w-5 flex-shrink-0" />
-          {!effectiveCollapsed && <span>Support@aqua-swim.co.il</span>}
+          {!effectiveCollapsed && <span className="truncate">Support@aqua-swim.co.il</span>}
         </a>
-        
+
         <Button
           variant="ghost"
           onClick={handleLogout}

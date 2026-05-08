@@ -163,23 +163,30 @@ const Billing = () => {
       </div>
 
       {/* Wallet Balance Card */}
-      <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
-        <CardContent className="flex items-center gap-4 p-6">
-          <div className="rounded-full bg-primary/20 p-3">
-            <Wallet className="h-6 w-6 text-primary" />
+      <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+        <CardContent className="flex items-center justify-between gap-4 p-6">
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-primary/20 p-3">
+              <Wallet className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">יתרת קרדיטים</p>
+              <p className="text-3xl font-bold text-primary">
+                {wallet?.credits_balance ?? 0}
+                <span className="text-base font-normal text-muted-foreground mr-2">קרדיטים</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">יתרת קרדיטים</p>
-            <p className="text-3xl font-bold text-primary">
-              {wallet?.credits_balance ?? 0}
-            </p>
-          </div>
+          <Button onClick={() => setIsPurchaseOpen(true)} className="gap-2 hidden sm:flex">
+            <Plus className="h-4 w-4" />
+            רכישת קרדיטים
+          </Button>
         </CardContent>
       </Card>
 
       {/* Tabs for different views */}
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className={`grid w-full h-auto ${isAdmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="transactions" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">תנועות</span>
